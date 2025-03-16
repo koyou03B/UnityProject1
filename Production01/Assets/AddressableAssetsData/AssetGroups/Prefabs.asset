@@ -15,14 +15,12 @@ MonoBehaviour:
   m_GroupName: Prefabs
   m_GUID: aec108a8bc9428c46b55b1674c10a72d
   m_SerializeEntries:
-  - m_GUID: 69976c70c79641a478821b54dee309b8
+  - m_GUID: 7749ba5b4b04f054287cbef503c85315
     m_Address: Prefabs/CursorCanvas
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
-  m_Settings: {fileID: 11400000, guid: 483373d9763c67640a7ea04d1e440e3d, type: 2}
+  m_Settings: {fileID: 11400000, guid: 0e08c725b13df3d41a27e0d371fe24fe, type: 2}
   m_SchemaSet:
-    m_Schemas:
-    - {fileID: 11400000, guid: 5cb6733d46212834d87417927452a4ae, type: 2}
-    - {fileID: 11400000, guid: 375a26ecd8d22b0468697d129c692892, type: 2}
+    m_Schemas: []
