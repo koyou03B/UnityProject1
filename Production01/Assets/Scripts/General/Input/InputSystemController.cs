@@ -5,91 +5,116 @@ using MiniJSON;
 
 //優先的に処理されてほしい
 [DefaultExecutionOrder(-10)]
-public class InputSystemController : SingletonMonoBehavior<InputSystemController>
+public class InputSystemController : SingletonMonoBehavior<InputSystemController>,IObserver<InputSystemKeyCode.eInputKeyType>
 {
-    private InputSystemKeyboard _InputKeyboard;
-    private InputSystemMouse _InputSystemMouse;
-    private Dictionary<InputSystemKeyCode.eInputSystemKeyCode, Key> _dCustomKeyCode;
-    private string _CustomKeyCodeData = "";
-    private bool _IsSetDefaultKeyCode = false;
+    private UseInputController[] _UseInputCtrls;
+    private UseInputController _CurrentInput;
+    private InputSystemMouse _Mouse;
+    private ILogger _Logger;
 
-    public InputSystemMouse InputMouse { get { return _InputSystemMouse; } private set { _InputSystemMouse = value; } }
+    public bool _IsInputLock;
+
+    public InputSystemMouse InputMouse { get { return _Mouse; } private set { _Mouse = value; } }
+    public bool IsInputLock { private get { return _IsInputLock; } set { _IsInputLock = value; } }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
-    static void OnLoadInit()
+    private static void InitOnBoot()
     {
-        GameObject gameObject = new GameObject();
-        gameObject.name = typeof(InputSystemController).Name;
-        gameObject.AddComponent<InputSystemController>();
+        _ = InputSystemController.Instance;
     }
 
     private void Awake()
     {
-        _InputKeyboard = gameObject.AddComponent<InputSystemKeyboard>();
-        _InputSystemMouse = gameObject.AddComponent<InputSystemMouse>();
-    }
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
-    {
-        CustomKeyCodeInit();
-
-        _InputKeyboard.OnKeyboardInit();
-        _InputSystemMouse.OnMouseInit();
-
         DontDestroyOnLoad(this.gameObject);
     }
 
-    // Update is called once per frame
-    void Update()
+    public void Start()
     {
-        _InputKeyboard.CheckConnectKeyboard();
-        _InputSystemMouse.OnMouseUpdate();
+        _UseInputCtrls = new UseInputController[2];
+        _UseInputCtrls[0] = new UseInputController(InputSystemKeyCode.eInputKeyType.Game);
+        _UseInputCtrls[1] = new UseInputController(InputSystemKeyCode.eInputKeyType.UI);
+        _CurrentInput = null;
+
+        _Mouse = new InputSystemMouse();
+        _Logger = new PrefixLogger(new UnityLogger(), "[InputSystemController]");
+        _IsInputLock = false;
+    }
+
+    public void OnNotify(InputSystemKeyCode.eInputKeyType state)
+    {
+        for (int i = 0; i < _UseInputCtrls.Length; i++)
+        {
+            if (state == _UseInputCtrls[i].KeyType)
+            {
+                _CurrentInput = _UseInputCtrls[i];
+                break;
+            }
+        }
+    }
+
+    public void OnError(System.Exception error)
+    {
+        _Logger.LogError($"Exception during load: {error.Message}");
+    }
+
+
+    public void Tick()
+    {
+        if(_CurrentInput != null)
+        {
+            _CurrentInput.Tick();
+        }
+        _Mouse.OnMouseUpdate();
     }
 
     /// <summary>
-    /// カスタムキーコードをロードする
+    /// Loadしたキーパックをセットする
     /// </summary>
-    /// <param name="jsonStr"></param>
-    public void LoadCustomKeyCode(string jsonStr)
+    public bool LoadCustomKeyCodePack(byte[] packedData)
     {
-        //初期化対応が終わっていないなら受け取って終わる
-        if(!_IsSetDefaultKeyCode)
+        if (!BytePacker.TryUnpack(packedData, out byte type, out byte version, out List<int> keyPack))
         {
-            _CustomKeyCodeData = jsonStr;
-            return;
+            _Logger.LogError("Failed to unpack input data.");
+            return false;
         }
- 
-        //取得したファイルを複合化
-        var jsonData = Json.Deserialize(jsonStr) as Dictionary<InputSystemKeyCode.eInputSystemKeyCode, Key>;
-        if(jsonData != null)
+
+        if (type != 1)
         {
-            _dCustomKeyCode = jsonData;
+            _Logger.LogError($"Unexpected type: {type}");
+            return false;
         }
+
+        // ここで、バージョンによってUseInputControllerに任せる
+        return _UseInputCtrls[0].LoadKeyPack(version, keyPack);
     }
 
     /// <summary>
     /// カスタムキーコードの保存
     /// </summary>
     /// <returns></returns>
-    public string SaveCustomKeyCode()
+    public byte[] SaveCustomKeyCodePack()
     {
-        _CustomKeyCodeData =  Json.Serialize(_dCustomKeyCode);
-        return _CustomKeyCodeData;
+        return _UseInputCtrls[0].GetCustomKeyCodePack();
     }
     /// <summary>
     /// 指定のキーを押しているかどうか
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
-    public bool GetKeyDown(InputSystemKeyCode.eInputSystemKeyCode key,InputSystemKeyCode.eInputKeyType type = InputSystemKeyCode.eInputKeyType.Game)
+    public bool GetKeyDown(InputSystemKeyCode.eInputSystemKeyCode key)
     {
-        if(type == InputSystemKeyCode.eInputKeyType.Game)
+        if(_IsInputLock)
         {
-            return _InputKeyboard.GetKeyDown(_dCustomKeyCode[key]);
-        }   
+            _Logger.Log("Currently not accepting input");
+            return false;
+        }
+        if (_CurrentInput == null)
+        {
+            _Logger.LogWarning($"{_CurrentInput} is null");
+            return false;
+        }
 
-        //UI用
-        return _InputKeyboard.GetKeyDown(key);
+        return _CurrentInput.GetKeyDown(key);
     }
 
     /// <summary>
@@ -97,14 +122,20 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
-    public bool GetKeyUp(InputSystemKeyCode.eInputSystemKeyCode key, InputSystemKeyCode.eInputKeyType type = InputSystemKeyCode.eInputKeyType.Game)
+    public bool GetKeyUp(InputSystemKeyCode.eInputSystemKeyCode key)
     {
-        if(type == InputSystemKeyCode.eInputKeyType.Game)
+        if (_IsInputLock)
         {
-            return _InputKeyboard.GetKeyUp(_dCustomKeyCode[key]);
-
+            _Logger.Log("Currently not accepting input");
+            return false;
         }
-        return _InputKeyboard.GetKeyUp(key);
+        if (_CurrentInput == null)
+        {
+            _Logger.LogWarning($"{_CurrentInput} is null");
+            return false;
+        }
+
+        return _CurrentInput.GetKeyUp(key);
     }
 
     /// <summary>
@@ -112,31 +143,22 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
-    public bool GetKeyPress(InputSystemKeyCode.eInputSystemKeyCode key, InputSystemKeyCode.eInputKeyType type = InputSystemKeyCode.eInputKeyType.Game)
+    public bool GetKeyPress(InputSystemKeyCode.eInputSystemKeyCode key)
     {
-        if (type == InputSystemKeyCode.eInputKeyType.Game)
+        if (_IsInputLock)
         {
-            return _InputKeyboard.GetKeyPress(_dCustomKeyCode[key]);
-
+            _Logger.Log("Currently not accepting input");
+            return false;
         }
-        return _InputKeyboard.GetKeyPress(key);
+
+        if(_CurrentInput == null)
+        {
+            _Logger.LogWarning($"{_CurrentInput} is null");
+            return false;
+        }
+
+        return _CurrentInput.GetKeyPress(key);
     }
 
-    /// <summary>
-    /// カスタムキーコードの設定
-    /// </summary>
-    private void CustomKeyCodeInit()
-    {
-        _dCustomKeyCode = new Dictionary<InputSystemKeyCode.eInputSystemKeyCode, Key>();
-        foreach (var keyCode in InputSystemKeyCode.DefaultKeyCode)
-        {
-            _dCustomKeyCode.Add(keyCode.Key, keyCode.Value);
-        }
-        _IsSetDefaultKeyCode = true;
-        //カスタムデータを受け取っていたらロードする
-        if (_CustomKeyCodeData.Contains("") == false)
-        {
-            LoadCustomKeyCode(_CustomKeyCodeData);
-        }
-    }
+
 }

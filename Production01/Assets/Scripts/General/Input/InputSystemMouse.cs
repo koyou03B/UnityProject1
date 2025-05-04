@@ -1,25 +1,26 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls;
 
-public class InputSystemMouse : MonoBehaviour
+public class InputSystemMouse 
 {
     private Mouse _CurrentMouse;
+    private ILogger _Logger;
+
     private Vector2 _CursorPosition;
     private bool _IsConnectMouse;
 
     public Vector2 CursorPosition { get { return _CursorPosition; } private set { _CursorPosition = value; } }
 
-    /// <summary>
-    /// 初期化
-    /// </summary>
-    public void OnMouseInit()
+    public InputSystemMouse()
     {
         _CurrentMouse = Mouse.current;
+        _Logger = new PrefixLogger(new UnityLogger(), "[Mouse]");
         _CursorPosition = Vector2.zero;
         _IsConnectMouse = (_CurrentMouse == null) ? false : true;
 
-        Cursor.visible = false;
-        Cursor.lockState = CursorLockMode.Confined; //これワンちゃんいらない明日見る
+        //Cursor.visible = false;
+        //Cursor.lockState = CursorLockMode.Confined; //これワンちゃんいらない明日見る
     }
 
     /// <summary>
@@ -39,17 +40,15 @@ public class InputSystemMouse : MonoBehaviour
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
-    public bool GetKeyDown(InputSystemKeyCode.eInputMouseButton key)
+    public bool GetKeyDown(InputSystemKeyCode.eInputMouseButton button)
     {
-        if (!_IsConnectMouse) return false;
-
-        var targetButton = key switch
+        if (!_IsConnectMouse)
         {
-            InputSystemKeyCode.eInputMouseButton.LeftButton => _CurrentMouse.leftButton,
-            InputSystemKeyCode.eInputMouseButton.RightButton => _CurrentMouse.rightButton,
-            _ => _CurrentMouse.middleButton,
-        };
-        return targetButton.wasPressedThisFrame;
+            _Logger.LogWarning("Thie Mouse is not connecting");
+            return false;
+        }
+
+        return GetButton(button)?.wasPressedThisFrame ?? false;
     }
 
     /// <summary>
@@ -57,16 +56,15 @@ public class InputSystemMouse : MonoBehaviour
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
-    public bool GetMouseUp(InputSystemKeyCode.eInputMouseButton key)
+    public bool GetMouseUp(InputSystemKeyCode.eInputMouseButton button)
     {
-        if (!_IsConnectMouse) return false;
-
-        var targetButton = key switch
+        if (!_IsConnectMouse)
         {
-            InputSystemKeyCode.eInputMouseButton.LeftButton => _CurrentMouse.leftButton,
-            InputSystemKeyCode.eInputMouseButton.RightButton => _CurrentMouse.rightButton,
-            _ => _CurrentMouse.middleButton,
-        }; return targetButton.wasReleasedThisFrame;
+            _Logger.LogWarning("Thie Mouse is not connecting");
+            return false;
+        }
+
+        return GetButton(button)?.wasReleasedThisFrame ?? false;
     }
 
 
@@ -75,16 +73,31 @@ public class InputSystemMouse : MonoBehaviour
     /// </summary>
     /// <param name="key"></param>
     /// <returns></returns>
-    public bool GetMousePress(InputSystemKeyCode.eInputMouseButton key)
+    public bool GetMousePress(InputSystemKeyCode.eInputMouseButton button)
     {
-        if (!_IsConnectMouse) return false;
+        if (!_IsConnectMouse)
+        {
+            _Logger.LogWarning("Thie Mouse is not connecting");
+            return false;
+        }
 
-        var targetButton = key switch
+        return GetButton(button)?.isPressed ?? false;
+    }
+
+    /// <summary>
+    /// 対応するボタンを入手
+    /// </summary>
+    /// <param name="button"></param>
+    /// <returns></returns>
+    private ButtonControl GetButton(InputSystemKeyCode.eInputMouseButton button)
+    {
+        return button switch
         {
             InputSystemKeyCode.eInputMouseButton.LeftButton => _CurrentMouse.leftButton,
             InputSystemKeyCode.eInputMouseButton.RightButton => _CurrentMouse.rightButton,
-            _ => _CurrentMouse.middleButton,
-        }; return targetButton.isPressed;
+            InputSystemKeyCode.eInputMouseButton.CenterButton => _CurrentMouse.middleButton,
+            _ => null,
+        };
     }
 
     /// <summary>
