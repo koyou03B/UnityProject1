@@ -2,7 +2,7 @@
 using UnityEngine;
 using static InputSystemKeyCode;
 
-public class UseInputController
+public class InputContext
 {
     private eInputKeyType _eInputKeyType;
     private ILogger _Logger;
@@ -10,7 +10,7 @@ public class UseInputController
     private InputSystemKeyboard _Keyboard;
     private CustomInputKey _CustomInputKey;
 
-    public UseInputController(eInputKeyType  keyType)
+    public InputContext(eInputKeyType  keyType)
     {
         this._eInputKeyType = keyType;
         _Logger = new PrefixLogger(new UnityLogger(), "[UseInputController]");

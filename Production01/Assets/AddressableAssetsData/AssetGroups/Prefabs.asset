@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Prefabs
   m_GUID: aec108a8bc9428c46b55b1674c10a72d
   m_SerializeEntries:
+  - m_GUID: 0426d48eddd8c194ca1e443f0d35cd85
+    m_Address: Prefabs/Cube
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7749ba5b4b04f054287cbef503c85315
     m_Address: Prefabs/CursorCanvas
     m_ReadOnly: 0

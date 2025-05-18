@@ -16,10 +16,11 @@ public class UICursorController : MonoBehaviour
     private eCursorMode _DebugCursorMode;
 
     private readonly string MouseCursorDataPath = "ScriptableObjects/MouseCursorData";
-    private readonly string CursorSpriteDatapath = "ScriptableObjects/CursorSpriteData";
+    private readonly string CursorSpriteDataPath = "ScriptableObjects/CursorSpriteData";
 
     private MouseCursorData _MouseCursorData;
     private SpriteListData _CursorSpriteData;
+    private ILogger _Logger;
 
     private Image _CursorImage;
     private Image _MouseInputImage;
@@ -33,16 +34,32 @@ public class UICursorController : MonoBehaviour
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    async Task Start()
     {
-        _MouseCursorData = AssetLoader.Instance.LoadAsset<MouseCursorData>(MouseCursorDataPath,false);
-        var cursorData = _MouseCursorData.GetMouseCursorInfo(eCursorMode.Base);
-        _CursorImage.sprite = cursorData._CursorSprite;
-        _SelfRectTransform.pivot = cursorData._Pivot;
+        _Logger = new PrefixLogger(new UnityLogger(), "[Cursor]");
 
-        _CursorSpriteData = AssetLoader.Instance.LoadAsset<SpriteListData>(CursorSpriteDatapath, false);
+        var pleLoader = AssetLoaderService.Instance.AssetPreloder;
+        await pleLoader.PreloadAsset<MouseCursorData>(MouseCursorDataPath);
+        var mouseCursorData = pleLoader.GetPreloadAsset<MouseCursorData>(MouseCursorDataPath);
+        if(mouseCursorData.IsSuccess)
+        {
+            _MouseCursorData = mouseCursorData.Asset;
+            var cursorData = _MouseCursorData.GetMouseCursorInfo(eCursorMode.Base);
+            _CursorImage.sprite = cursorData._CursorSprite;
+            _SelfRectTransform.pivot = cursorData._Pivot;
+        }
+        else
+        {
+            _Logger.LogError(mouseCursorData.ErrorMessage);
+        }
+
+        await pleLoader.PreloadAsset<SpriteListData>(CursorSpriteDataPath);
+        var cursorSpriteData = pleLoader.GetPreloadAsset<SpriteListData>(CursorSpriteDataPath);
+        if(cursorSpriteData.IsSuccess)
+        {
+            _CursorSpriteData = cursorSpriteData.Asset;
+        }
         _MouseInputImage.enabled = false;
-
         DontDestroyOnLoad(_SelfRectTransform.parent.gameObject);
     }
 

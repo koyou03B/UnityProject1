@@ -7,8 +7,8 @@ using MiniJSON;
 [DefaultExecutionOrder(-10)]
 public class InputSystemController : SingletonMonoBehavior<InputSystemController>,IObserver<InputSystemKeyCode.eInputKeyType>
 {
-    private UseInputController[] _UseInputCtrls;
-    private UseInputController _CurrentInput;
+    private InputContext[] _InputContexts;
+    private InputContext _CurrentInput;
     private InputSystemMouse _Mouse;
     private ILogger _Logger;
 
@@ -30,9 +30,9 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
 
     public void Start()
     {
-        _UseInputCtrls = new UseInputController[2];
-        _UseInputCtrls[0] = new UseInputController(InputSystemKeyCode.eInputKeyType.Game);
-        _UseInputCtrls[1] = new UseInputController(InputSystemKeyCode.eInputKeyType.UI);
+        _InputContexts = new InputContext[2];
+        _InputContexts[0] = new InputContext(InputSystemKeyCode.eInputKeyType.Game);
+        _InputContexts[1] = new InputContext(InputSystemKeyCode.eInputKeyType.UI);
         _CurrentInput = null;
 
         _Mouse = new InputSystemMouse();
@@ -42,11 +42,11 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
 
     public void OnNotify(InputSystemKeyCode.eInputKeyType state)
     {
-        for (int i = 0; i < _UseInputCtrls.Length; i++)
+        for (int i = 0; i < _InputContexts.Length; i++)
         {
-            if (state == _UseInputCtrls[i].KeyType)
+            if (state == _InputContexts[i].KeyType)
             {
-                _CurrentInput = _UseInputCtrls[i];
+                _CurrentInput = _InputContexts[i];
                 break;
             }
         }
@@ -85,7 +85,7 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
         }
 
         // ここで、バージョンによってUseInputControllerに任せる
-        return _UseInputCtrls[0].LoadKeyPack(version, keyPack);
+        return _InputContexts[0].LoadKeyPack(version, keyPack);
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
     /// <returns></returns>
     public byte[] SaveCustomKeyCodePack()
     {
-        return _UseInputCtrls[0].GetCustomKeyCodePack();
+        return _InputContexts[0].GetCustomKeyCodePack();
     }
     /// <summary>
     /// 指定のキーを押しているかどうか
