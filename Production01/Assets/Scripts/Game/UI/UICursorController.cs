@@ -45,8 +45,8 @@ public class UICursorController : MonoBehaviour
         {
             _MouseCursorData = mouseCursorData.Asset;
             var cursorData = _MouseCursorData.GetMouseCursorInfo(eCursorMode.Base);
-            _CursorImage.sprite = cursorData._CursorSprite;
-            _SelfRectTransform.pivot = cursorData._Pivot;
+            _CursorImage.sprite = cursorData.CursorSprite;
+            _SelfRectTransform.pivot = cursorData.Pivot;
         }
         else
         {
@@ -72,8 +72,8 @@ public class UICursorController : MonoBehaviour
     public void ChangeCursorMode(eCursorMode mode)
     {
         var cursorData = _MouseCursorData.GetMouseCursorInfo(mode);
-        _CursorImage.sprite = cursorData._CursorSprite;
-        _SelfRectTransform.pivot = cursorData._Pivot;
+        _CursorImage.sprite = cursorData.CursorSprite;
+        _SelfRectTransform.pivot = cursorData.Pivot;
 
         if(mode == eCursorMode.Base)
         {

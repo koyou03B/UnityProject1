@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.IO;
 using UnityEngine;
 public class UnityLogger : ILogger
@@ -9,27 +9,27 @@ public class UnityLogger : ILogger
 }
 
 /// <summary>
-/// u‰½‚ÌvƒGƒ‰[‚©‚Á‚Äo‚µ‚½‚¢‚Æ‚«
+/// ã€Œä½•ã®ã€ã‚¨ãƒ©ãƒ¼ã‹ã£ã¦å‡ºã—ãŸã„ã¨ã
 /// </summary>
 public class PrefixLogger : ILogger
 {
-    private readonly ILogger _innerLogger;
-    private readonly string _prefix;
+    private readonly ILogger _InnerLogger;
+    private readonly string _Prefix;
 
     public PrefixLogger(ILogger innerLogger, string prefix)
     {
-        _innerLogger = innerLogger;
-        _prefix = prefix;
+        _InnerLogger = innerLogger;
+        _Prefix = prefix;
     }
 
-    public void Log(string message) => _innerLogger.Log($"{_prefix} {message}");
-    public void LogWarning(string message) => _innerLogger.LogWarning($"{_prefix} {message}");
-    public void LogError(string message) => _innerLogger.LogError($"{_prefix} {message}");
+    public void Log(string message) => _InnerLogger.Log($"{_Prefix} {message}");
+    public void LogWarning(string message) => _InnerLogger.LogWarning($"{_Prefix} {message}");
+    public void LogError(string message) => _InnerLogger.LogError($"{_Prefix} {message}");
 }
 
 /// <summary>
-/// Œã‚ÅÁ‚·‚©‚à
-/// ‰½‚ào‚³‚È‚­‚Ä‚¢‚¢‚Æ‚«
+/// å¾Œã§æ¶ˆã™ã‹ã‚‚
+/// ä½•ã‚‚å‡ºã•ãªãã¦ã„ã„ã¨ã
 /// </summary>
 public class SilentLogger : ILogger
 {
@@ -40,21 +40,21 @@ public class SilentLogger : ILogger
 
 public class FileLogger : ILogger
 {
-    private readonly string _filePath;
+    private readonly string _FilePath;
 
     /// <summary>
-    /// ƒtƒ@ƒCƒ‹‚ÉƒƒO‚ğ‘‚­‚æ‚¤
+    /// ãƒ•ã‚¡ã‚¤ãƒ«ã«ãƒ­ã‚°ã‚’æ›¸ãã‚ˆã†
     /// </summary>
     /// <param name="filePath"></param>
     public FileLogger(string filePath)
     {
-        _filePath = filePath;
+        _FilePath = filePath;
         Directory.CreateDirectory(Path.GetDirectoryName(filePath));
     }
 
     private void AppendToFile(string message)
     {
-        File.AppendAllText(_filePath, message + Environment.NewLine);
+        File.AppendAllText(_FilePath, message + Environment.NewLine);
     }
 
     public void Log(string message) => AppendToFile($"[INFO] {message}");

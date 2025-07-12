@@ -12,7 +12,7 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
     private InputSystemMouse _Mouse;
     private ILogger _Logger;
 
-    public bool _IsInputLock;
+    private bool _IsInputLock;
 
     public InputSystemMouse InputMouse { get { return _Mouse; } private set { _Mouse = value; } }
     public bool IsInputLock { private get { return _IsInputLock; } set { _IsInputLock = value; } }
@@ -70,22 +70,20 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
     /// <summary>
     /// Loadしたキーパックをセットする
     /// </summary>
-    public bool LoadCustomKeyCodePack(byte[] packedData)
+    public void LoadCustomKeyCodePack(byte[] packedData)
     {
-        if (!BytePacker.TryUnpack(packedData, out byte type, out byte version, out List<int> keyPack))
+        if (!BytePacker.TryUnpack(packedData, out byte type, out byte version, out byte[] keyPack))
         {
             _Logger.LogError("Failed to unpack input data.");
-            return false;
         }
 
-        if (type != 1)
+        if (type != (byte)SaveTypeEnum.eSaveCategory.Input)
         {
             _Logger.LogError($"Unexpected type: {type}");
-            return false;
         }
 
         // ここで、バージョンによってUseInputControllerに任せる
-        return _InputContexts[0].LoadKeyPack(version, keyPack);
+         _InputContexts[0].LoadKeyPack(version, keyPack);
     }
 
     /// <summary>

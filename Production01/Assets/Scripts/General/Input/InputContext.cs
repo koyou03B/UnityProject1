@@ -9,16 +9,17 @@ public class InputContext
 
     private InputSystemKeyboard _Keyboard;
     private CustomInputKey _CustomInputKey;
-
+    private CustomInputKeyPacker _CustomInputKeyPacker;
     public InputContext(eInputKeyType  keyType)
     {
         this._eInputKeyType = keyType;
-        _Logger = new PrefixLogger(new UnityLogger(), "[UseInputController]");
+        _Logger = new PrefixLogger(new UnityLogger(), "[InputContext]");
 
         _Keyboard = new InputSystemKeyboard();
 
         bool isLock = keyType == eInputKeyType.UI;
         _CustomInputKey = new CustomInputKey(isLock);
+        _CustomInputKeyPacker = new CustomInputKeyPacker();
     }
 
     public eInputKeyType KeyType => _eInputKeyType;
@@ -62,6 +63,7 @@ public class InputContext
         return _Keyboard.GetKeyPress(key);
     }
 
+    private readonly byte _Version = 0;
     /// <summary>
     /// Save用のbyte配列でカスタムキーを渡す
     /// </summary>
@@ -69,7 +71,9 @@ public class InputContext
     public byte[] GetCustomKeyCodePack()
     {
         List<int> keyPack = _CustomInputKey.CreateSavePackKeyCode();
-        return BytePacker.Pack(0,0,keyPack);
+        byte[] payload =  _CustomInputKeyPacker.PackPayload(keyPack, _Version);
+
+        return BytePacker.Pack((byte)SaveTypeEnum.eSaveCategory.Input, _Version, payload);
     }
 
     /// <summary>
@@ -77,17 +81,13 @@ public class InputContext
     /// </summary>
     /// <param name="version"></param>
     /// <param name="rawData"></param>
-    public bool LoadKeyPack(byte version, List<int> keyPack)
+    public bool LoadKeyPack(byte version, byte[] payload)
     {
-        switch (version)
+       bool completeUnpacked =  _CustomInputKeyPacker.TryUnpackPayload(payload, version, out List<int> keyPack);
+       if(completeUnpacked)
         {
-            case 0:
-                _CustomInputKey.SetKeyCodePack(keyPack);
-                return true;
-
-            default:
-                _Logger.LogError($"Unsupported version: {version}");
-                return false;
+            _CustomInputKey.SetKeyCodePack(keyPack);
         }
+        return completeUnpacked;
     }
 }

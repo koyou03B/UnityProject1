@@ -6,15 +6,18 @@ using static InputSystemKeyCode;
 
 public class CustomInputKey
 {
-    private Dictionary<eInputSystemKeyCode, Key> _dCustomKeyCode;
+    //private Dictionary<eInputSystemKeyCode, Key> _dCustomKeyCode;
+    private Dictionary<eInputSystemKeyCode, Key> _dActionToKey = new();
+    private Dictionary<Key, eInputSystemKeyCode> _dKeyToAction = new();
+
     private ILogger _Logger;
-    public bool _IsLock;
+    private bool _IsLock;
 
     public CustomInputKey(bool isLock)
     {
         this._IsLock = isLock;
-        this._Logger = new PrefixLogger(new UnityLogger(), "[CustomInputKey]"); 
-        _dCustomKeyCode =  new Dictionary<eInputSystemKeyCode, Key>()
+        this._Logger = new PrefixLogger(new UnityLogger(), "[CustomInputKey]");
+        _dActionToKey = new Dictionary<eInputSystemKeyCode, Key>()
     {
         {eInputSystemKeyCode.A, Key.A },
         {eInputSystemKeyCode.B, Key.B },
@@ -71,42 +74,56 @@ public class CustomInputKey
         { eInputSystemKeyCode.RightArrow,   Key.RightArrow},
         { eInputSystemKeyCode.LeftArrow,        Key.LeftArrow},
     };
+
+        foreach (var pair in _dActionToKey)
+        {
+            _dKeyToAction.Add(pair.Value, pair.Key);
+        }
     }
 
-    public Key GetKey(eInputSystemKeyCode keyCode) => _dCustomKeyCode[keyCode];
+    public Key GetKey(eInputSystemKeyCode keyCode) => _dActionToKey[keyCode];
 
     /// <summary>
     /// 指定したキーコードに反応するキーを変更する
     /// </summary>
-    /// <param name="keyCode">指定するキーコード</param>
-    /// <param name="key">指定したキー</param>
-    public void ChangeKeyBinding(eInputSystemKeyCode keyCode, Key key)
+    /// <param name="newKey"></param>
+    /// <param name="targetAction"></param>
+    public void ChangeKeyBinding(Key newKey, eInputSystemKeyCode targetAction)
     {
         if (_IsLock)
         {
-            _Logger.LogWarning("This CustomKeyCode cannot be customized!");
-            return;
-        }
-        Key bindedKey;
-        //そもそもkeyCodeは登録されているのか
-        if (!_dCustomKeyCode.TryGetValue(keyCode,out bindedKey))
-        {
-            _dCustomKeyCode[keyCode] = key;
-            _Logger.Log($"_dCustomKeyCode do not get {keyCode}. So this pair{keyCode}{key} was Bind");
+            _Logger.LogWarning("CustomInputKey is locked.");
             return;
         }
 
-        //キーが登録されているキーコードをもらう
-        eInputSystemKeyCode bindedKeyCode = FindBindingKeyCode(key);
-
-        //登録されていたキーの変更
-        _dCustomKeyCode[keyCode] = key;
-        if(bindedKeyCode != eInputSystemKeyCode.None)
+        // 古いキーを取得
+        if (!_dActionToKey.TryGetValue(targetAction, out var oldKey))
         {
-            //古いキー同士をペアに変更
-            _dCustomKeyCode[bindedKeyCode] = bindedKey;
+            _Logger.LogWarning($"Action {targetAction} not found in bindings.");
+            return;
         }
-        _Logger.Log($"Complete this pair{keyCode}{key} was Bind");
+
+        // 新しいキーに別のアクションがあれば取得
+        if (_dKeyToAction.TryGetValue(newKey, out var otherAction))
+        {
+            // スワップ
+            _dKeyToAction[newKey] = targetAction;
+            _dActionToKey[targetAction] = newKey;
+
+            _dKeyToAction[oldKey] = otherAction;
+            _dActionToKey[otherAction] = oldKey;
+
+            _Logger.Log($"Swapped: {targetAction}⇔{otherAction} (keys {oldKey}⇔{newKey})");
+        }
+        else
+        {
+            // 単純な移動
+            _dKeyToAction.Remove(oldKey);
+            _dKeyToAction[newKey] = targetAction;
+            _dActionToKey[targetAction] = newKey;
+
+            _Logger.Log($"Changed: {targetAction} moved from {oldKey} to {newKey}");
+        }
     }
 
     /// <summary>
@@ -116,19 +133,19 @@ public class CustomInputKey
     public List<int> CreateSavePackKeyCode()
     {
         var result = new List<int>();
-        var count = _dCustomKeyCode.Count;
+        var count = _dActionToKey.Count;
 
         //2つずつ処理
         for (int i = 0; i < count; i += 2)
         {
-            var keyPair1 = _dCustomKeyCode.ElementAt(i);
+            var keyPair1 = _dActionToKey.ElementAt(i);
             byte key1 = (byte)keyPair1.Key;
             byte value1 = (byte)keyPair1.Value;
 
             byte key2 = 0, value2 = 0;
             if (i + 1 < count)
             {
-                var keyPair2 = _dCustomKeyCode.ElementAt(i + 1); //次のペア(ない可能性もある)
+                var keyPair2 = _dActionToKey.ElementAt(i + 1); //次のペア(ない可能性もある)
                 key2 = (byte)keyPair2.Key;
                 value2 = (byte)keyPair2.Value;
             }
@@ -148,7 +165,7 @@ public class CustomInputKey
     /// <param name="packedData"></param>
     public void SetKeyCodePack(List<int> packedData)
     {
-        foreach(int packed in packedData)
+        foreach (int packed in packedData)
         {
             // packedから値を取り出す
             byte key1 = (byte)((packed >> 24) & 0xFF); // 最上位8bit
@@ -156,30 +173,15 @@ public class CustomInputKey
             byte key2 = (byte)((packed >> 8) & 0xFF);  // 次の8bit
             byte value2 = (byte)(packed & 0xFF);          // 最下位8bit
 
-            _dCustomKeyCode[(eInputSystemKeyCode)key1] = (Key)value1;
+            _dActionToKey[(eInputSystemKeyCode)key1] = (Key)value1;
+            _dKeyToAction[(Key)value1] =(eInputSystemKeyCode)key1;
             //0と0の可能性もあるので確認
-            if(key2 != 0 && value2 != 0)
+            if (key2 != 0 && value2 != 0)
             {
-                _dCustomKeyCode[(eInputSystemKeyCode)key2] = (Key)value2;
+                _dActionToKey[(eInputSystemKeyCode)key2] = (Key)value2;
+                _dKeyToAction[(Key)value2] = (eInputSystemKeyCode)key2;
             }
         }
         _Logger.Log("Completed SetKeyCodePack ");
-    }
-
-    /// <summary>
-    /// キーコードを探す
-    /// </summary>
-    /// <param name="key">指定するキー</param>
-    /// <returns></returns>
-    private eInputSystemKeyCode FindBindingKeyCode(Key key)
-    {
-        foreach (var keyPairs in _dCustomKeyCode)
-        {
-            if(key == keyPairs.Value)
-            {
-                return keyPairs.Key;
-            }
-        }
-        return eInputSystemKeyCode.None;
     }
 }

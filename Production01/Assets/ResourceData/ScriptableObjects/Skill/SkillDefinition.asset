@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5390584e68bbf541bfbefd3627de78c, type: 3}
+  m_Name: SkillDefinition
+  m_EditorClassIdentifier: 
+  _SkillGroup:
+    eMainSkillCategory: 1
+    SkillTierPackageArray:
+    - SkillTier: 0
+      SkillDataList:
+      - SkillTier: 0
+        eMainSkillCategory: 0
+        eSubSkillCategory: 4
+        eSkillTriggerTiming: 1
+        _ID: FireBall
+    - SkillTier: 1
+      SkillDataList:
+      - SkillTier: 0
+        eMainSkillCategory: 0
+        eSubSkillCategory: 12
+        eSkillTriggerTiming: 1
+        _ID: FireBurst

@@ -10,10 +10,14 @@ public class MouseCursorData : ScriptableObject
     {
         [SerializeField]
         private eCursorMode _CursorMode;
-        public  Sprite _CursorSprite;
-        public Vector2 _Pivot;
+        [SerializeField]
+        private Sprite _CursorSprite;
+        [SerializeField]
+        private Vector2 _Pivot;
 
         public bool CheckCursorMode(eCursorMode mode) => mode == _CursorMode;
+        public Sprite CursorSprite => _CursorSprite;
+        public Vector2 Pivot => _Pivot;
     }
 
     [SerializeField]

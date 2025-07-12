@@ -5,13 +5,13 @@ public class SingletonMonoBehavior<T> : MonoBehaviour  where T: Component
 {
     private static T s_Instance;
     private static ILogger _Logger = new PrefixLogger(new UnityLogger(), "[Singlton]");
-    private static readonly object _lock = new object();
+    private static readonly object _Lock = new object();
 
     public static T Instance
     {
         get
         {
-            lock (_lock)
+            lock (_Lock)
             {
                 if (s_Instance == null)
                 {
