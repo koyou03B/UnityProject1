@@ -15,7 +15,7 @@ public struct SkillSlot
     public InputSystemKeyCode.eInputSystemKeyCode eInputSystemKeyCode => _eInputSystemKeyCode;
     public SkillReference SkillReference => _SkillReference;
 
-    public bool HasAssignedSkill => SkillReference.SkillID > 0;
+    public bool HasAssignedSkill() => SkillReference.SkillID > 0;
     public void ChangeKeyCode(InputSystemKeyCode.eInputSystemKeyCode newKeyCode) => _eInputSystemKeyCode = newKeyCode;
     public void ChangeSkillReference(SkillReference newSkillReference) => _SkillReference = newSkillReference;
 
