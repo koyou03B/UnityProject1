@@ -7,11 +7,19 @@ public class SceneLoadResult
 {
     public SceneInstance SceneInstance { get; }
     public Scene Scene { get { return SceneInstance.Scene; } }
+    public AssetLoadErrorType ErrorType { get; }
 
     public string ErrorMessage { get; }
 
-    public bool IsSuccess => string.IsNullOrEmpty(ErrorMessage);
-
-    public SceneLoadResult(SceneInstance sceneInstance) => SceneInstance = sceneInstance;
-    public SceneLoadResult(string errorMessage) => ErrorMessage = errorMessage;
+    public bool IsSuccess => ErrorType == AssetLoadErrorType.None;
+    public SceneLoadResult(SceneInstance sceneInstance)
+    {
+        SceneInstance = sceneInstance;
+        ErrorType = AssetLoadErrorType.None;
+    }
+    public SceneLoadResult(AssetLoadErrorType type, string errorMessage)
+    {
+        ErrorType = type;
+        ErrorMessage = errorMessage;
+    }
 }

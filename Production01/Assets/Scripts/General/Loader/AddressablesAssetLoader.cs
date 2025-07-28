@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
-using System.Threading.Tasks;
+
 
 /// <summary>
 /// ここでは読み込むことだけを考える
@@ -17,7 +19,8 @@ public class AddressablesAssetLoader : BaseAssetLoader
     /// <typeparam name="T"></typeparam>
     /// <param name="key"></param>
     /// <returns></returns>
-    public async ValueTask<AssetLoadResult<T>> LoadAssetAsync<T>(string key, bool retryIfReleasing = true) where T : UnityEngine.Object
+    public async ValueTask<AssetLoadResult<T>> LoadAssetAsync<T>(string key, bool retryIfReleasing = true,
+        CancellationToken token = default) where T : UnityEngine.Object
     {
         if (retryIfReleasing)
         {
@@ -25,13 +28,13 @@ public class AddressablesAssetLoader : BaseAssetLoader
             var success = await WaitUntilReleasedAsync(key);
             if (!success)
             {
-                return new AssetLoadResult<T>($"Asset is still being released after retries: {key}");
+                return new AssetLoadResult<T>(AssetLoadErrorType.InUse,$"Asset is still being released after retries: {key}");
             }
         }
         //このタイミング解放されてないならアウト
         else if (IsReleasing(key))
         {
-            return new AssetLoadResult<T>($"Asset is currently being released: {key}");
+            return new AssetLoadResult<T>(AssetLoadErrorType.InUse,$"Asset is currently being released: {key}");
         }
 
         try
@@ -45,8 +48,12 @@ public class AddressablesAssetLoader : BaseAssetLoader
 
             //非同期で読み込み
             var op = UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<T>(key);
-            await op.Task;
-
+            while (!op.IsDone)
+            {
+                //キャンセルを確認したら例外を吐く
+                token.ThrowIfCancellationRequested();
+                await Task.Yield();
+            }
             if (op.Status == AsyncOperationStatus.Succeeded)
             {
                 //成功時にキャッシュにいれる
@@ -54,11 +61,15 @@ public class AddressablesAssetLoader : BaseAssetLoader
                 return new AssetLoadResult<T>(op.Result as T);
             }
 
-            return new AssetLoadResult<T>($"Failed to load asset: {key}");
+            return new AssetLoadResult<T>(AssetLoadErrorType.NotFound,$"Failed to load asset: {key}");
+        }
+        catch (OperationCanceledException)
+        {
+            return new AssetLoadResult<T>(AssetLoadErrorType.Canceled,"Canceled");
         }
         catch (Exception e)
         {
-            return new AssetLoadResult<T>($"Exception during load: {e.Message}");
+            return new AssetLoadResult<T>(AssetLoadErrorType.Exception, $"Exception during load: {e.Message}");
         }
     }
 
@@ -69,7 +80,8 @@ public class AddressablesAssetLoader : BaseAssetLoader
     /// <param name="key">キー</param>
     /// <param name="progress">進捗関数</param>
     /// <returns></returns>
-    public async ValueTask<AssetLoadResult<T>> LoadAssetWithProgressAsync<T>(string key,IProgressReporter progress = null, bool retryIfReleasing = true) where T :UnityEngine.Object
+    public async ValueTask<AssetLoadResult<T>> LoadAssetWithProgressAsync<T>(string key,IProgressReporter progress = null, 
+        bool retryIfReleasing = true, CancellationToken token = default) where T :UnityEngine.Object
     {
         if (retryIfReleasing)
         {
@@ -77,13 +89,13 @@ public class AddressablesAssetLoader : BaseAssetLoader
             var success = await WaitUntilReleasedAsync(key);
             if (!success)
             {
-                return new AssetLoadResult<T>($"Asset is still being released after retries: {key}");
+                return new AssetLoadResult<T>(AssetLoadErrorType.InUse,$"Asset is still being released after retries: {key}");
             }
         }
         //このタイミング解放されてないならアウト
         else if (IsReleasing(key))
         {
-            return new AssetLoadResult<T>($"Asset is currently being released: {key}");
+            return new AssetLoadResult<T>(AssetLoadErrorType.InUse,$"Asset is currently being released: {key}");
         }
 
         try
@@ -101,23 +113,30 @@ public class AddressablesAssetLoader : BaseAssetLoader
             var op = Addressables.LoadAssetAsync<T>(key);
             while (!op.IsDone)
             {
+                //キャンセルが出たら例外に
+                token.ThrowIfCancellationRequested();
                 progress?.Report(op.PercentComplete);
                 await Task.Yield(); // フレームを跨いでループ
             }
 
             if (op.Status == AsyncOperationStatus.Succeeded)
             {
+                progress?.Report(1.0f);
                 //成功時にキャッシュにいれる
                 _Cache.AddToCache(key, op);
                 return new AssetLoadResult<T>(op.Result as T);
             }
 
             //キーが違う可能性
-            return new AssetLoadResult<T>($"Failed to load asset: {key}");
+            return new AssetLoadResult<T>(AssetLoadErrorType.NotFound,$"Failed to load asset: {key}");
+        }
+        catch (OperationCanceledException)
+        {
+            return new AssetLoadResult<T>(AssetLoadErrorType.Canceled,"Canceled");
         }
         catch (Exception e)
         {
-            return new AssetLoadResult<T>($"Exception during load: {e.Message}");
+            return new AssetLoadResult<T>(AssetLoadErrorType.Exception, $"Exception during load: {e.Message}");
         }
     }
 

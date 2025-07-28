@@ -1,10 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 
+/// <summary>
+/// ゲーム起動時に必要な共通リソースをプリロードする専用クラス 
+/// </summary>
 public class AddressablesAssetPreloader : BaseAssetLoader
 {
     public AddressablesAssetPreloader(ILogger logger) : base(logger) { }
@@ -14,7 +18,8 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// </summary>
     /// <typeparam name="T">ロードする型</typeparam>
     /// <param name="key">キー</param>
-    public async Task PreloadAsset<T>(string key, bool retryIfReleasing = true) where T : UnityEngine.Object
+    public async Task PreloadAsset<T>(string key, bool retryIfReleasing = true,
+        CancellationToken token = default) where T : UnityEngine.Object
     {
         if (retryIfReleasing)
         {
@@ -23,54 +28,14 @@ public class AddressablesAssetPreloader : BaseAssetLoader
             if (!success)
             {
                 _Logger.LogWarning($"Asset is still being released after retries: {key}");
+                return;
             }
         }
         //このタイミング解放されてないならアウト
         else if (IsReleasing(key))
         {
             _Logger.LogWarning($"Asset is currently being released: {key}");
-        }
-
-        try
-        {
-            // キャッシュに既にあるか確認
-            if (_Cache.IsCacheAvailable(key)) return;
-
-            // アセットを非同期で読み込み
-            var op = Addressables.LoadAssetAsync<T>(key);
-            op.Completed += (handle) =>
-            {
-                //完了時にキャッシュ追加
-                _Cache.AddToCache(key, handle);
-            };
-            await op.Task;
-        }
-        catch(Exception e)
-        {
-            _Logger.LogError($"Exception during load: {e.Message}");
-        }
-    }
-
-    /// <summary>
-    /// アセットを事前にロードしてキャッシュに保存
-    /// </summary>
-    /// <typeparam name="T">ロードする型</typeparam>
-    /// <param name="key">キー</param>
-    public async Task PreloadAssetWithProgressAsync<T>(string key, IProgressReporter progress = null, bool retryIfReleasing = true) where T : UnityEngine.Object
-    {
-        if (retryIfReleasing)
-        {
-            //数回の猶予をもって解放まで待ってみる
-            var success = await WaitUntilReleasedAsync(key);
-            if (!success)
-            {
-                _Logger.LogWarning($"Asset is still being released after retries: {key}");
-            }
-        }
-        //このタイミング解放されてないならアウト
-        else if (IsReleasing(key))
-        {
-            _Logger.LogWarning($"Asset is currently being released: {key}");
+            return;
         }
 
         try
@@ -82,11 +47,67 @@ public class AddressablesAssetPreloader : BaseAssetLoader
             var op = Addressables.LoadAssetAsync<T>(key);
             while (!op.IsDone)
             {
-                progress?.Report(op.PercentComplete);
-                await Task.Yield(); // フレームを跨いでループ
+                //キャンセルが出たら例外を出す
+                token.ThrowIfCancellationRequested();
+                await Task.Yield();
             }
-            //完了時にキャッシュ追加
             _Cache.AddToCache(key, op);
+        }
+        catch (OperationCanceledException)
+        {
+            _Logger.LogWarning($"Preload canceled: {key}");
+        }
+        catch (Exception e)
+        {
+            _Logger.LogError($"Exception during load: {e.Message}");
+        }
+    }
+
+    /// <summary>
+    /// アセットを事前にロードしてキャッシュに保存
+    /// </summary>
+    /// <typeparam name="T">ロードする型</typeparam>
+    /// <param name="key">キー</param>
+    public async Task PreloadAssetWithProgressAsync<T>(string key, IProgressReporter progress = null, 
+        bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
+    {
+        if (retryIfReleasing)
+        {
+            //数回の猶予をもって解放まで待ってみる
+            var success = await WaitUntilReleasedAsync(key);
+            if (!success)
+            {
+                _Logger.LogWarning($"Asset is still being released after retries: {key}");
+                return;
+            }
+        }
+        //このタイミング解放されてないならアウト
+        else if (IsReleasing(key))
+        {
+            _Logger.LogWarning($"Asset is currently being released: {key}");
+            return;
+        }
+
+        try
+        {
+            // キャッシュに既にあるか確認
+            if (_Cache.IsCacheAvailable(key)) return;
+
+            // アセットを非同期で読み込み
+            var op = Addressables.LoadAssetAsync<T>(key);
+            while (!op.IsDone)
+            {
+                //キャンセルが出たら例外を吐くように
+                token.ThrowIfCancellationRequested();
+                progress?.Report(op.PercentComplete);
+                await Task.Yield();
+            }
+            progress?.Report(1.0f);
+            _Cache.AddToCache(key, op);
+        }
+        catch (OperationCanceledException)
+        {
+            _Logger.LogWarning($"Preload canceled: {key}");
         }
         catch (Exception e)
         {
@@ -99,7 +120,7 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// </summary>
     /// <typeparam name="T">ロード対象の型</typeparam>
     /// <param name="label">Addressableのラベル</param>
-    public async Task PreloadLabelAssetsIndividuallyAsync<T>(string label, bool retryIfReleasing = true) where T : UnityEngine.Object
+    public async Task PreloadLabelAssetsIndividuallyAsync<T>(string label, bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
     {
         try
         {
@@ -117,12 +138,14 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                     if (!success)
                     {
                         _Logger.LogWarning($"Asset is still being released after retries: {location.PrimaryKey}");
+                        continue;
                     }
                 }
                 //このタイミング解放されてないならアウト
                 else if (IsReleasing(location.PrimaryKey))
                 {
                     _Logger.LogWarning($"Asset is currently being released: {location.PrimaryKey}");
+                    continue;
                 }
 
                 // アセットを非同期で読み込み
@@ -131,8 +154,12 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 //Load後に行ってほしい処理
                 async Task LoadAndCache()
                 {
-                    await op.Task; // ← これでメインスレッドに戻る(ここでいうメインは呼び出し元のスレッドのこと)
-
+                    while (!op.IsDone)
+                    {
+                        //きゃんせる...
+                        token.ThrowIfCancellationRequested();
+                        await Task.Yield();
+                    }
                     //成功時のみキャッシュに登録
                     if (op.Status == AsyncOperationStatus.Succeeded)
                     {
@@ -149,7 +176,11 @@ public class AddressablesAssetPreloader : BaseAssetLoader
             //全部アセットのロードが終わるまで待機
             await Task.WhenAll(loadTasks);
         }
-        catch(Exception e)
+        catch (OperationCanceledException)
+        {
+            _Logger.LogWarning($"Preload label canceled: {label}");
+        }
+        catch (Exception e)
         {
             _Logger.LogError($"Exception during load: {e.Message}");
         }
@@ -163,7 +194,8 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// <param name="label"></param>
     /// <param name="progress"></param>
     /// <returns></returns>
-    public async Task PreloadLabelAssetsIndividuallyWithProgressAsync<T>(string label, IProgressReporter progress = null, bool retryIfReleasing = true) where T : UnityEngine.Object
+    public async Task PreloadLabelAssetsIndividuallyWithProgressAsync<T>(string label, IProgressReporter progress = null, 
+        bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
     {
         try
         {
@@ -183,12 +215,16 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                     if (!success)
                     {
                         _Logger.LogWarning($"Asset is still being released after retries: {location.PrimaryKey}");
+                        --total;
+                        continue;
                     }
                 }
                 //このタイミング解放されてないならアウト
                 else if (IsReleasing(location.PrimaryKey))
                 {
                     _Logger.LogWarning($"Asset is currently being released: {location.PrimaryKey}");
+                    --total;
+                    continue;
                 }
 
                 // アセットを非同期で読み込み
@@ -197,8 +233,11 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 //Load後に行ってほしい処理
                 async Task LoadAndCache()
                 {
-                    await op.Task; // ← これでメインスレッドに戻る(ここでいうメインは呼び出し元のスレッドのこと)
-
+                    while (!op.IsDone)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        await Task.Yield();
+                    }
                     //成功時のみキャッシュに登録
                     if (op.Status == AsyncOperationStatus.Succeeded)
                     {
@@ -210,7 +249,7 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                     }
 
                     //トータルに対して完了した数で進捗を送る
-                    ++completed;
+                    Interlocked.Increment(ref completed);//おさわりは一人ずつ
                     progress?.Report((float)completed / total);
                 }
                 loadTasks.Add(LoadAndCache());
@@ -218,6 +257,10 @@ public class AddressablesAssetPreloader : BaseAssetLoader
 
             //全部アセットのロードが終わるまで待機
             await Task.WhenAll(loadTasks);
+        }
+        catch (OperationCanceledException)
+        {
+            _Logger.LogWarning($"Preload label canceled: {label}");
         }
         catch (Exception e)
         {
@@ -241,10 +284,10 @@ public class AddressablesAssetPreloader : BaseAssetLoader
         }
         else if (cached.HasValue)
         {
-            return new AssetLoadResult<T>(cached.Value.OperationException?.Message);
+            return new AssetLoadResult<T>(AssetLoadErrorType.Exception, cached.Value.OperationException?.Message);
         }
 
-        return new AssetLoadResult<T>($"Asset not found in preload cache: {key}");
+        return new AssetLoadResult<T>(AssetLoadErrorType.NotFound, $"Asset not found in preload cache: {key}");
     }
     
 }

@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceProviders;
 using UnityEngine.SceneManagement;
 
-public class AddressablesSceneLoader 
+public class AddressablesSceneLoader
 {
     private ILogger _Logger;
 
@@ -21,14 +23,18 @@ public class AddressablesSceneLoader
     /// </summary>
     /// <param name="sceneKey"></param>
     /// <returns></returns>
-    public async ValueTask<SceneLoadResult> LoadSceneAsync(string sceneKey)
+    public async Task<SceneLoadResult> LoadSceneAsync(string sceneKey, CancellationToken token = default)
     {
         try
         {
             //非アクティブにしておく
-            var op = Addressables.LoadSceneAsync(sceneKey, LoadSceneMode.Additive,false);
-            await op.Task;
-
+            var op = Addressables.LoadSceneAsync(sceneKey, LoadSceneMode.Additive, false);
+            while (!op.IsDone)
+            {
+                //キャンセルが出たら例外発生
+                token.ThrowIfCancellationRequested();
+                await Task.Yield();
+            }
             //問題なくロードできているなら
             if (op.Status == AsyncOperationStatus.Succeeded)
             {
@@ -36,11 +42,16 @@ public class AddressablesSceneLoader
                 return new SceneLoadResult(op.Result);
             }
 
-            return new SceneLoadResult($"Failed during load: {sceneKey}");
+            return new SceneLoadResult(AssetLoadErrorType.NotFound, $"Failed during load: {sceneKey}");
+        }
+        catch (OperationCanceledException)
+        {
+            _Logger.LogWarning($"Scene load canceled: {sceneKey}");
+            return new SceneLoadResult(AssetLoadErrorType.Canceled, "Canceled");
         }
         catch (Exception e)
         {
-            return new SceneLoadResult($"Exception during load: {e.Message}");
+            return new SceneLoadResult(AssetLoadErrorType.Exception, $"Exception during load: {e.Message}");
         }
     }
 
@@ -50,16 +61,18 @@ public class AddressablesSceneLoader
     /// <param name="sceneKey"></param>
     /// <param name="progress"></param>
     /// <returns></returns>
-    public async ValueTask<SceneLoadResult> LoadSceneWithProgressAsync(string sceneKey, IProgressReporter progress = null)
+    public async Task<SceneLoadResult> LoadSceneWithProgressAsync(string sceneKey, IProgressReporter progress = null, CancellationToken token = default)
     {
         try
         {
-            var op = Addressables.LoadSceneAsync(sceneKey, LoadSceneMode.Additive,false);
+            var op = Addressables.LoadSceneAsync(sceneKey, LoadSceneMode.Additive, false);
 
             while (!op.IsDone)
             {
+                //キャンセル例外
+                token.ThrowIfCancellationRequested();
                 progress?.Report(op.PercentComplete);
-                await Task.Yield();// フレームを跨いでループ
+                await Task.Yield();
             }
 
             if (op.Status == AsyncOperationStatus.Succeeded)
@@ -68,12 +81,133 @@ public class AddressablesSceneLoader
                 return new SceneLoadResult(op.Result);
             }
 
-            return new SceneLoadResult($"Failed to load scene: {sceneKey}");
+            return new SceneLoadResult(AssetLoadErrorType.NotFound, $"Failed to load scene: {sceneKey}");
+        }
+        catch (OperationCanceledException)
+        {
+            _Logger.LogWarning($"Scene load canceled: {sceneKey}");
+            return new SceneLoadResult(AssetLoadErrorType.Canceled, "Canceled");
         }
         catch (Exception e)
         {
-            return new SceneLoadResult($"Exception during scene load: {e.Message}");
+            return new SceneLoadResult(AssetLoadErrorType.Exception, $"Exception during scene load: {e.Message}");
         }
+    }
+
+    /// <summary>
+    /// 複数のシーンをロードする
+    /// </summary>
+    /// <param name="sceneKeys"></param>
+    /// <param name="token"></param>
+    /// <returns></returns>
+    public async Task<SceneLoadResult[]> LoadMultipleScenesAsync(string[] sceneKeys, CancellationToken token = default)
+    {
+        SceneLoadResult[] loadResults = new SceneLoadResult[sceneKeys.Length];
+        List<Task<SceneLoadResult>> loadTasks = new List<Task<SceneLoadResult>>();
+
+        //foreachを使うことでクロージャー機能が活きてopやkeyにアクセスできる
+        foreach (var key in sceneKeys)
+        {
+            var op = Addressables.LoadSceneAsync(key, LoadSceneMode.Additive, false);
+
+            //ロード完了待ち
+            async Task<SceneLoadResult> LoadSceneAsync()
+            {
+                try
+                {
+                    while (!op.IsDone)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        await Task.Yield();
+                    }
+
+                    if (op.Status == AsyncOperationStatus.Succeeded)
+                    {
+                        _Logger.Log($"Loaded scene: {key}");
+                        return new SceneLoadResult(op.Result);
+                    }
+
+                    return new SceneLoadResult(AssetLoadErrorType.NotFound, $"Failed during load: {key}");
+                }
+                catch (OperationCanceledException)
+                {
+                    _Logger.LogWarning($"Scene load canceled: {key}");
+                    return new SceneLoadResult(AssetLoadErrorType.Canceled, "Canceled");
+                }
+                catch (Exception e)
+                {
+                    _Logger.LogWarning($"Exception during load: {e.Message}");
+                    return new SceneLoadResult(AssetLoadErrorType.Exception, $"Exception: {e.Message}");
+                }
+            }
+
+            loadTasks.Add(LoadSceneAsync());
+        }
+
+        return await Task.WhenAll(loadTasks);
+    }
+
+    /// <summary>
+    /// 複数シーン読み込み+読み込み進捗も返す
+    /// </summary>
+    /// <param name="sceneKeys"></param>
+    /// <param name="progress"></param>
+    /// <param name="token"></param>
+    /// <returns></returns>
+    public async Task<SceneLoadResult[]> LoadMultipleScenesAsync(string[] sceneKeys, IProgressReporter progress = null, CancellationToken token = default)
+    {
+        SceneLoadResult[] loadResults = new SceneLoadResult[sceneKeys.Length];
+        List<Task<SceneLoadResult>> loadTasks = new List<Task<SceneLoadResult>>();
+        int completed = 0;
+        int total = sceneKeys.Length;
+        //foreachを使うことでクロージャー機能が活きてopやkeyにアクセスできる
+        foreach (var key in sceneKeys)
+        {
+            var op = Addressables.LoadSceneAsync(key, LoadSceneMode.Additive, false);
+
+            //ロード完了待ち
+            async Task<SceneLoadResult> LoadSceneAsync()
+            {
+                try
+                {
+                    while (!op.IsDone)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        await Task.Yield();
+                    }
+
+                    if (op.Status == AsyncOperationStatus.Succeeded)
+                    {
+                        _Logger.Log($"Loaded scene: {key}");
+                        //トータルに対して完了した数で進捗を送る
+                        ++completed;
+                        progress?.Report((float)completed / total);
+                        return new SceneLoadResult(op.Result);
+                    }
+                    return new SceneLoadResult(AssetLoadErrorType.NotFound, $"Failed during load: {key}");
+                }
+                catch (OperationCanceledException)
+                {
+                    _Logger.LogWarning($"Scene load canceled: {key}");
+                    return new SceneLoadResult(AssetLoadErrorType.Canceled, "Canceled");
+                }
+                catch (Exception e)
+                {
+                    _Logger.LogWarning($"Exception during load: {e.Message}");
+                    return new SceneLoadResult(AssetLoadErrorType.Exception, $"Exception: {e.Message}");
+                }
+                finally
+                {
+                    // 成功でも失敗でもキャンセルでも進捗は更新する
+                    Interlocked.Increment(ref completed);
+                    progress?.Report((float)completed / total);
+                }
+            }
+
+            loadTasks.Add(LoadSceneAsync());
+        }
+
+        return await Task.WhenAll(loadTasks);
     }
 
     /// <summary>
@@ -85,24 +219,6 @@ public class AddressablesSceneLoader
         //これを呼ぶとそうなるらしい
         await sceneInstance.ActivateAsync();
         _Logger.Log($"Complete Active SceneInstance.Scene : {sceneInstance.Scene.name}");
-    }
-
-    /// <summary>
-    /// シーンの読み込みとそのシーン内のAwait/Start/Enebleを行う
-    /// </summary>
-    /// <param name="sceneKey"></param>
-    /// <param name="progress"></param>
-    /// <returns></returns>
-    public async Task LoadSceneAnsSetActiveAsync(string sceneKey, IProgressReporter progress = null)
-    {
-        var result = await ((progress == null) ? LoadSceneAsync(sceneKey) : LoadSceneWithProgressAsync(sceneKey, progress)); 
-
-        //ちゃんと読み込めていたら
-        if(result.IsSuccess)
-        {
-            _Logger.Log($"Complete Load Scene : {sceneKey}");
-            await SetActiveSceneInstance(result.SceneInstance);
-        }
     }
 
     /// <summary>
