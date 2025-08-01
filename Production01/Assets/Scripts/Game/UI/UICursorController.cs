@@ -39,7 +39,7 @@ public class UICursorController : MonoBehaviour
         _Logger = new PrefixLogger(new UnityLogger(), "[Cursor]");
 
         var pleLoader = AssetLoaderService.Instance.AssetPreloder;
-        await pleLoader.PreloadAsset<MouseCursorData>(MouseCursorDataPath);
+        await pleLoader.PreloadAssetAsync<MouseCursorData>(MouseCursorDataPath);
         var mouseCursorData = pleLoader.GetPreloadAsset<MouseCursorData>(MouseCursorDataPath);
         if(mouseCursorData.IsSuccess)
         {
@@ -53,7 +53,7 @@ public class UICursorController : MonoBehaviour
             _Logger.LogError(mouseCursorData.ErrorMessage);
         }
 
-        await pleLoader.PreloadAsset<SpriteListData>(CursorSpriteDataPath);
+        await pleLoader.PreloadAssetAsync<SpriteListData>(CursorSpriteDataPath);
         var cursorSpriteData = pleLoader.GetPreloadAsset<SpriteListData>(CursorSpriteDataPath);
         if(cursorSpriteData.IsSuccess)
         {

@@ -18,9 +18,12 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// </summary>
     /// <typeparam name="T">ロードする型</typeparam>
     /// <param name="key">キー</param>
-    public async Task PreloadAsset<T>(string key, bool retryIfReleasing = true,
+    public async Task<PreloadResult> PreloadAssetAsync<T>(string key, bool retryIfReleasing = true,
         CancellationToken token = default) where T : UnityEngine.Object
     {
+        List<string> successKeys = new List<string>();
+        List<string> failedKeys = new List<string>();
+
         if (retryIfReleasing)
         {
             //数回の猶予をもって解放まで待ってみる
@@ -28,20 +31,27 @@ public class AddressablesAssetPreloader : BaseAssetLoader
             if (!success)
             {
                 _Logger.LogWarning($"Asset is still being released after retries: {key}");
-                return;
+                 failedKeys.Add(key);
+                return new PreloadResult(successKeys,failedKeys);
             }
         }
         //このタイミング解放されてないならアウト
         else if (IsReleasing(key))
         {
             _Logger.LogWarning($"Asset is currently being released: {key}");
-            return;
+            failedKeys.Add(key);
+            return new PreloadResult(successKeys, failedKeys);
         }
 
         try
         {
             // キャッシュに既にあるか確認
-            if (_Cache.IsCacheAvailable(key)) return;
+            if (_Cache.IsCacheAvailable(key))
+            {
+                //触れるのは一人のみ
+                successKeys.Add(key);
+                return new PreloadResult(successKeys, failedKeys);
+            }
 
             // アセットを非同期で読み込み
             var op = Addressables.LoadAssetAsync<T>(key);
@@ -51,16 +61,31 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 token.ThrowIfCancellationRequested();
                 await Task.Yield();
             }
-            _Cache.AddToCache(key, op);
+            //読み込み成功時
+            if(op.Status == AsyncOperationStatus.Succeeded)
+            {
+                _Cache.AddToCache(key, op);
+                //触れるのは一人のみ
+                successKeys.Add(key);
+            }
+            else
+            {
+                _Logger.LogWarning($"[Preload] Failed to load {key}: {op.OperationException}");
+                //触れるのは一人のみ
+                failedKeys.Add(key);
+            }
         }
         catch (OperationCanceledException)
         {
-            _Logger.LogWarning($"Preload canceled: {key}");
+            failedKeys.Add(key);
         }
         catch (Exception e)
         {
             _Logger.LogError($"Exception during load: {e.Message}");
+            failedKeys.Add(key);
         }
+
+        return new PreloadResult(successKeys, failedKeys);
     }
 
     /// <summary>
@@ -68,9 +93,12 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// </summary>
     /// <typeparam name="T">ロードする型</typeparam>
     /// <param name="key">キー</param>
-    public async Task PreloadAssetWithProgressAsync<T>(string key, IProgressReporter progress = null, 
+    public async Task<PreloadResult> PreloadAssetWithProgressAsync<T>(string key, IProgressReporter progress = null, 
         bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
     {
+        List<string> successKeys = new List<string>();
+        List<string> failedKeys = new List<string>();
+
         if (retryIfReleasing)
         {
             //数回の猶予をもって解放まで待ってみる
@@ -78,20 +106,27 @@ public class AddressablesAssetPreloader : BaseAssetLoader
             if (!success)
             {
                 _Logger.LogWarning($"Asset is still being released after retries: {key}");
-                return;
+                failedKeys.Add(key);
+                return new PreloadResult(successKeys, failedKeys);
+
             }
         }
         //このタイミング解放されてないならアウト
         else if (IsReleasing(key))
         {
             _Logger.LogWarning($"Asset is currently being released: {key}");
-            return;
+            failedKeys.Add(key);
+            return new PreloadResult(successKeys, failedKeys);
         }
 
         try
         {
             // キャッシュに既にあるか確認
-            if (_Cache.IsCacheAvailable(key)) return;
+            if (_Cache.IsCacheAvailable(key))
+            {
+                successKeys.Add(key);
+                return new PreloadResult(successKeys, failedKeys);
+            }
 
             // アセットを非同期で読み込み
             var op = Addressables.LoadAssetAsync<T>(key);
@@ -102,17 +137,31 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 progress?.Report(op.PercentComplete);
                 await Task.Yield();
             }
-            progress?.Report(1.0f);
-            _Cache.AddToCache(key, op);
+            //読み込み成功時
+            if (op.Status == AsyncOperationStatus.Succeeded)
+            {
+                progress?.Report(1.0f);
+                _Cache.AddToCache(key, op);
+                successKeys.Add(key);
+            }
+            else
+            {
+                _Logger.LogWarning($"[Preload] Failed to load {key}: {op.OperationException}");
+                failedKeys.Add(key);
+            }
         }
         catch (OperationCanceledException)
         {
             _Logger.LogWarning($"Preload canceled: {key}");
+            failedKeys.Add(key);
         }
         catch (Exception e)
         {
             _Logger.LogError($"Exception during load: {e.Message}");
+            failedKeys.Add(key);
         }
+
+        return new PreloadResult(successKeys, failedKeys);
     }
 
     /// <summary>
@@ -120,8 +169,11 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// </summary>
     /// <typeparam name="T">ロード対象の型</typeparam>
     /// <param name="label">Addressableのラベル</param>
-    public async Task PreloadLabelAssetsIndividuallyAsync<T>(string label, bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
+    public async Task<PreloadResult> PreloadLabelAssetsIndividuallyAsync<T>(string label, bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
     {
+        List<string> successKeys = new();
+        List<string> failedKeys = new();
+        object _lock = new(); // ローカルに鍵を1つだけ用意して全タスクで共有
         try
         {
             //非同期ラベル読み込み
@@ -138,6 +190,8 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                     if (!success)
                     {
                         _Logger.LogWarning($"Asset is still being released after retries: {location.PrimaryKey}");
+                        //触れるのは一人のみ
+                        lock (_lock) failedKeys.Add(location.PrimaryKey);
                         continue;
                     }
                 }
@@ -145,6 +199,8 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 else if (IsReleasing(location.PrimaryKey))
                 {
                     _Logger.LogWarning($"Asset is currently being released: {location.PrimaryKey}");
+                    //触れるのは一人のみ
+                    lock (_lock) failedKeys.Add(location.PrimaryKey);
                     continue;
                 }
 
@@ -154,36 +210,56 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 //Load後に行ってほしい処理
                 async Task LoadAndCache()
                 {
-                    while (!op.IsDone)
+                    try
                     {
-                        //きゃんせる...
-                        token.ThrowIfCancellationRequested();
-                        await Task.Yield();
+                        while (!op.IsDone)
+                        {
+                            //Cancelされたら反応
+                            token.ThrowIfCancellationRequested();
+                            await Task.Yield();
+                        }
+
+                        if (op.Status == AsyncOperationStatus.Succeeded)
+                        {
+                            _Cache.AddToCache(location.PrimaryKey, op);
+                            //触れるのは一人のみ
+                            lock (_lock) successKeys.Add(location.PrimaryKey);
+                        }
+                        else
+                        {
+                            _Logger.LogWarning($"[Preload] Failed to load {location.PrimaryKey}: {op.OperationException}");
+                            //触れるのは一人のみ
+                            lock (_lock) failedKeys.Add(location.PrimaryKey);
+                        }
                     }
-                    //成功時のみキャッシュに登録
-                    if (op.Status == AsyncOperationStatus.Succeeded)
+                    catch (OperationCanceledException)
                     {
-                        _Cache.AddToCache(location.PrimaryKey, op);
+                        _Logger.LogWarning($"[Preload] Canceled during load: {location.PrimaryKey}");
+                        //触れるのは一人のみ
+                        lock (_lock) failedKeys.Add(location.PrimaryKey);
                     }
-                    else
+                    catch (Exception e)
                     {
-                        _Logger.LogWarning($"Failed to preload {location.PrimaryKey}: {op.OperationException}");
+                        _Logger.LogWarning($"[Preload] Exception while loading {location.PrimaryKey}: {e.Message}");
+                        //触れるのは一人のみ
+                        lock (_lock) failedKeys.Add(location.PrimaryKey);
                     }
                 }
+
                 loadTasks.Add(LoadAndCache());
             }
 
             //全部アセットのロードが終わるまで待機
             await Task.WhenAll(loadTasks);
         }
-        catch (OperationCanceledException)
-        {
-            _Logger.LogWarning($"Preload label canceled: {label}");
-        }
         catch (Exception e)
         {
             _Logger.LogError($"Exception during load: {e.Message}");
+            // エラーが発生した場合、全部失敗扱いで返す
+            return new PreloadResult(successKeys, failedKeys.Count > 0 ? failedKeys : new List<string> { $"[LabelLoadFailed] {label}" });
         }
+
+        return new PreloadResult(successKeys, failedKeys);
     }
 
     /// <summary>
@@ -194,9 +270,12 @@ public class AddressablesAssetPreloader : BaseAssetLoader
     /// <param name="label"></param>
     /// <param name="progress"></param>
     /// <returns></returns>
-    public async Task PreloadLabelAssetsIndividuallyWithProgressAsync<T>(string label, IProgressReporter progress = null, 
+    public async Task<PreloadResult> PreloadLabelAssetsIndividuallyWithProgressAsync<T>(string label, IProgressReporter progress = null, 
         bool retryIfReleasing = true, CancellationToken token = default) where T : UnityEngine.Object
     {
+        List<string> successKeys = new();
+        List<string> failedKeys = new();
+        object _lock = new(); // ローカルに鍵を1つだけ用意して全タスクで共有
         try
         {
             //非同期ラベル読み込み
@@ -215,7 +294,9 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                     if (!success)
                     {
                         _Logger.LogWarning($"Asset is still being released after retries: {location.PrimaryKey}");
-                        --total;
+                        //触れるのは一人のみ
+                        lock (_lock) failedKeys.Add(location.PrimaryKey);
+                        Interlocked.Decrement(ref total);
                         continue;
                     }
                 }
@@ -223,7 +304,9 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 else if (IsReleasing(location.PrimaryKey))
                 {
                     _Logger.LogWarning($"Asset is currently being released: {location.PrimaryKey}");
-                    --total;
+                    //触れるのは一人のみ
+                    lock (_lock) failedKeys.Add(location.PrimaryKey);
+                    Interlocked.Decrement(ref total);
                     continue;
                 }
 
@@ -233,24 +316,45 @@ public class AddressablesAssetPreloader : BaseAssetLoader
                 //Load後に行ってほしい処理
                 async Task LoadAndCache()
                 {
-                    while (!op.IsDone)
+                    try
                     {
-                        token.ThrowIfCancellationRequested();
-                        await Task.Yield();
+                        while (!op.IsDone)
+                        {
+                            token.ThrowIfCancellationRequested();
+                            await Task.Yield();
+                        }
+                        //成功時のみキャッシュに登録
+                        if (op.Status == AsyncOperationStatus.Succeeded)
+                        {
+                            _Cache.AddToCache(location.PrimaryKey, op);
+                            //触れるのは一人のみ
+                            lock (_lock) successKeys.Add(location.PrimaryKey);
+                        }
+                        else
+                        {
+                            _Logger.LogWarning($"Failed to preload {location.PrimaryKey}: {op.OperationException}");
+                            //触れるのは一人のみ
+                            lock (_lock) failedKeys.Add(location.PrimaryKey);
+                        }
                     }
-                    //成功時のみキャッシュに登録
-                    if (op.Status == AsyncOperationStatus.Succeeded)
+                    catch (OperationCanceledException)
                     {
-                        _Cache.AddToCache(location.PrimaryKey, op);
+                        _Logger.LogWarning($"[Preload] Canceled during load: {location.PrimaryKey}");
+                        //触れるのは一人のみ
+                        lock (_lock) failedKeys.Add(location.PrimaryKey);
                     }
-                    else
+                    catch (Exception e)
                     {
-                        _Logger.LogWarning($"Failed to preload {location.PrimaryKey}: {op.OperationException}");
+                        _Logger.LogWarning($"[Preload] Exception while loading {location.PrimaryKey}: {e.Message}");
+                        //触れるのは一人のみ
+                        lock (_lock) failedKeys.Add(location.PrimaryKey);
                     }
-
-                    //トータルに対して完了した数で進捗を送る
-                    Interlocked.Increment(ref completed);//おさわりは一人ずつ
-                    progress?.Report((float)completed / total);
+                    finally
+                    {
+                        //トータルに対して完了した数で進捗を送る
+                        Interlocked.Increment(ref completed);//おさわりは一人ずつ
+                        progress?.Report((float)completed / total);
+                    }
                 }
                 loadTasks.Add(LoadAndCache());
             }
@@ -258,14 +362,14 @@ public class AddressablesAssetPreloader : BaseAssetLoader
             //全部アセットのロードが終わるまで待機
             await Task.WhenAll(loadTasks);
         }
-        catch (OperationCanceledException)
-        {
-            _Logger.LogWarning($"Preload label canceled: {label}");
-        }
         catch (Exception e)
         {
             _Logger.LogError($"Exception during load: {e.Message}");
+            // エラーが発生した場合、全部失敗扱いで返す
+            return new PreloadResult(successKeys, failedKeys.Count > 0 ? failedKeys : new List<string> { $"[LabelLoadFailed] {label}" });
         }
+
+        return new PreloadResult(successKeys, failedKeys);
     }
 
     /// <summary>

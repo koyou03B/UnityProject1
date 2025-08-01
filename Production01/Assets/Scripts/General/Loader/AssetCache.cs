@@ -13,6 +13,8 @@ public class AssetCache
     private Dictionary<string, AsyncOperationHandle> _dCache = new Dictionary<string, AsyncOperationHandle>();
     //使い方: https://qiita.com/kohi7777/items/e6264c960fc2e6980596
     private HashSet<string> _ReleaseAssetKeys = new HashSet<string>();
+
+    private readonly object _lock = new();
     private ILogger _Logger = new PrefixLogger(new UnityLogger(), "[AssetCache]");
 
     /// <summary>
@@ -22,15 +24,18 @@ public class AssetCache
     /// <param name="asset">登録するアセット</param>
     public void AddToCache(string key, AsyncOperationHandle handle)
     {
-        //解放中なんで追加禁止です
-        if(_ReleaseAssetKeys.Contains(key))
+        lock (_lock)
         {
-            _Logger.LogWarning($"Cannot add to cache: {key} is currently being released.");
-            return;
+            //解放中なんで追加禁止です
+            if (_ReleaseAssetKeys.Contains(key))
+            {
+                _Logger.LogWarning($"Cannot add to cache: {key} is currently being released.");
+                return;
+            }
+            //キーがなければ追加
+            if (_dCache.ContainsKey(key)) return;
+            _dCache[key] = handle;
         }
-        //キーがなければ追加
-        if (_dCache.ContainsKey(key)) return;
-        _dCache[key] = handle;
     }
 
     /// <summary>
@@ -40,7 +45,10 @@ public class AssetCache
     /// <returns></returns>
     public bool IsCacheAvailable(string key)
     {
-        return _dCache.ContainsKey(key);
+        lock (_lock)
+        {
+            return _dCache.ContainsKey(key);
+        }
     }
 
     /// <summary>
@@ -50,7 +58,10 @@ public class AssetCache
     /// <returns></returns>
     public bool IsReleasingAssetKey(string key)
     {
-        return _ReleaseAssetKeys.Contains(key);
+        lock (_lock)
+        {
+            return _ReleaseAssetKeys.Contains(key);
+        }
     }
 
     /// <summary>
@@ -62,17 +73,20 @@ public class AssetCache
     /// <returns></returns>
     public AsyncOperationHandle? GetFromCache(string key)
     {
-        if (_ReleaseAssetKeys.Contains(key))
+        lock (_lock)
         {
-            _Logger.LogWarning($"Asset with key {key} is currently being released.");
-            return null;
+            if (_ReleaseAssetKeys.Contains(key))
+            {
+                _Logger.LogWarning($"Asset with key {key} is currently being released.");
+                return null;
+            }
+            if (!_dCache.ContainsKey(key))
+            {
+                _Logger.LogWarning($"Asset with key {key} not found in cache.");
+                return null;
+            }
+            return _dCache[key];
         }
-        if (!_dCache.ContainsKey(key))
-        {
-            _Logger.LogWarning($"Asset with key {key} not found in cache.");
-            return null;
-        }
-        return _dCache[key];
     }
 
     /// <summary>
@@ -80,14 +94,34 @@ public class AssetCache
     /// </summary>
     public async Task ClearCache()
     {
-        foreach (var key in new List<string>(_dCache.Keys))
+        List<string> keysToClear;
+
+        //複数回に分けることで長時間のLockを防ぐ
+        //要は独り占めさせない
+        lock (_lock)
         {
-            _ReleaseAssetKeys.Add(key);
+            keysToClear = new List<string>(_dCache.Keys);
+            foreach (var key in keysToClear)
+            {
+                _ReleaseAssetKeys.Add(key);
+            }
+        }
+        foreach (var key in keysToClear)
+        {
+            AsyncOperationHandle handle;
+            lock (_lock)
+            {
+                handle = _dCache[key];
+            }
             Addressables.Release(_dCache[key]);
             //同じタイミングでロードと解放が行われるのを防止
             await Task.Yield();//1フレーム待機
-            _dCache.Remove(key);
-            _ReleaseAssetKeys.Remove(key);
+
+            lock (_lock)
+            {
+                _dCache.Remove(key);
+                _ReleaseAssetKeys.Remove(key);
+            }
         }
 
         _Logger.Log("Clear AllCache Completed");
@@ -99,15 +133,25 @@ public class AssetCache
     /// <param name="key">キー</param>
     public async Task ClearCache(string key)
     {
-        if (_dCache.ContainsKey(key))
+        AsyncOperationHandle handle;
+
+        lock (_lock)
         {
+            if (!_dCache.ContainsKey(key)) return;
+
             _ReleaseAssetKeys.Add(key);
-            Addressables.Release(_dCache[key]);
-            //同じタイミングでロードと解放が行われるのを防止
-            await Task.Yield();//1フレーム待機
+            handle = _dCache[key];
+        }
+
+        Addressables.Release(handle);
+        await Task.Yield();
+
+        lock (_lock)
+        {
             _dCache.Remove(key);
             _ReleaseAssetKeys.Remove(key);
         }
+
         _Logger.Log($"Clear {key} Cache Completed");
     }
 }

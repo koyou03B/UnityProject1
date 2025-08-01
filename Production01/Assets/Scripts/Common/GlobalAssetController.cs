@@ -30,7 +30,7 @@ public class GlobalAssetController : SingletonMonoBehavior<GlobalAssetController
     {
         _Logger = new PrefixLogger(new UnityLogger(), "[GlobalAssetController]");
         var pleLoader = AssetLoaderService.Instance.AssetPreloder;
-        await pleLoader.PreloadAsset<GameObject>(CursorCanvasPath);
+        await pleLoader.PreloadAssetAsync<GameObject>(CursorCanvasPath);
         var cursorCanvasData = pleLoader.GetPreloadAsset<GameObject>(CursorCanvasPath);
         if(cursorCanvasData.IsSuccess)
         {

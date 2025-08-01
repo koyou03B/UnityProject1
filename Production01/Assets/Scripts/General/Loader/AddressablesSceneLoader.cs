@@ -11,7 +11,7 @@ using UnityEngine.SceneManagement;
 public class AddressablesSceneLoader
 {
     private ILogger _Logger;
-
+    private readonly object _lock = new();
     public AddressablesSceneLoader(ILogger logger)
     {
         _Logger = logger;
@@ -154,7 +154,7 @@ public class AddressablesSceneLoader
     /// <param name="progress"></param>
     /// <param name="token"></param>
     /// <returns></returns>
-    public async Task<SceneLoadResult[]> LoadMultipleScenesAsync(string[] sceneKeys, IProgressReporter progress = null, CancellationToken token = default)
+    public async Task<SceneLoadResult[]> LoadMultipleScenesAsync(string[] sceneKeys, IProgressReporter progress, CancellationToken token = default)
     {
         SceneLoadResult[] loadResults = new SceneLoadResult[sceneKeys.Length];
         List<Task<SceneLoadResult>> loadTasks = new List<Task<SceneLoadResult>>();
@@ -181,7 +181,7 @@ public class AddressablesSceneLoader
                         _Logger.Log($"Loaded scene: {key}");
                         //トータルに対して完了した数で進捗を送る
                         ++completed;
-                        progress?.Report((float)completed / total);
+                        progress?.Report((float)(completed / total));
                         return new SceneLoadResult(op.Result);
                     }
                     return new SceneLoadResult(AssetLoadErrorType.NotFound, $"Failed during load: {key}");
@@ -200,7 +200,7 @@ public class AddressablesSceneLoader
                 {
                     // 成功でも失敗でもキャンセルでも進捗は更新する
                     Interlocked.Increment(ref completed);
-                    progress?.Report((float)completed / total);
+                    progress?.Report((float)(completed / total));
                 }
             }
 
@@ -227,38 +227,58 @@ public class AddressablesSceneLoader
     /// <param name="scene"></param>
     public void SetActiveScene(Scene scene)
     {
-        SceneManager.SetActiveScene(scene);
-        _Logger.Log($"Active scene: {scene.name}");
+        lock (_lock)
+        {
+            SceneManager.SetActiveScene(scene);
+            _Logger.Log($"Active scene: {scene.name}");
+        }
     }
 
+    //ここでしか使わない
+    private readonly HashSet<string> _UnloadingScenes = new();
     /// <summary>
     /// シーンのアンロード
     /// </summary>
     /// <param name="scene"></param>
     public async Task UnloadSceneAsync(Scene scene)
     {
+        string name = scene.name;
+
+        // Unload中なら即return
+        lock (_lock)
+        {
+            if (_UnloadingScenes.Contains(name))
+            {
+                _Logger.LogWarning($"Scene {name} is already unloading.");
+                return;
+            }
+            _UnloadingScenes.Add(name);
+        }
+
         try
         {
+            //sceneごとにopが作られる
             var op = SceneManager.UnloadSceneAsync(scene);
             if (op == null)
             {
-                _Logger.LogWarning($"Scene {scene.name} is not valid or already unloaded.");
+                _Logger.LogWarning($"Scene {name} is not valid or already unloaded.");
                 return;
             }
 
-            //Taskがないからこうやって待つしかないかも
             while (!op.isDone)
             {
                 await Task.Yield();
             }
 
-            _Logger.Log($"Unload complete: {scene.name}");
+            _Logger.Log($"Unload complete: {name}");
         }
-        catch(Exception e)
+        finally
         {
-            _Logger.LogWarning($"Exception during load: {e.Message}");
+            lock (_lock)
+            {
+                _UnloadingScenes.Remove(name);
+            }
         }
-
     }
 
     /// <summary>
