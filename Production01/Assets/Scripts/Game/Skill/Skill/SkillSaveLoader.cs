@@ -16,7 +16,7 @@ public class SkillSaveLoader
 
     }
 
-    public byte[] GetAllSkillSlotPack()
+    public void SaveAllSkillData()
     {
         SkillSlot[] skillSlots = new SkillSlot[CharacterSkillContext.MainSkillCount + CharacterSkillContext.SubSkillCount];
         SkillSlot[] mainSkills = _SkillContext.MainSkillSlotAll;
@@ -32,7 +32,9 @@ public class SkillSaveLoader
 
         byte[] payload = _SkillDataPacker.PackPayload(skillSlots, _Version);
 
-        return BytePacker.Pack((int)SaveTypeEnum.eSaveCategory.Skill, 0, payload);
+        var packData =  BytePacker.Pack((int)SaveTypeEnum.eSaveCategory.Skill, 0, payload);
+        //Rawに保存
+        GlobalRawSaveData.Instance.SetRawSkillData(packData);
     }
 
     /// <summary>
