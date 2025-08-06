@@ -30,9 +30,11 @@ public static class BytePacker
             return false;
         }
 
-        type = packedData[0];
-        version = packedData[1];
-        int size = BitConverter.ToInt32(packedData, 2);
+        int index = 0;
+
+        type = packedData[index++];
+        version = packedData[index++];
+        int size = BitUtility.ReadInt(packedData,ref index);
 
         //size +6(「何の」「いつの」「どのくらいの」) でpackdeDataと同じ長さ
         if (packedData.Length != size + 6)

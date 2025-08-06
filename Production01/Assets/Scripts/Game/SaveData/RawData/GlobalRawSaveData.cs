@@ -8,5 +8,24 @@
 /// </summary>
 public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRawSaveData>
 {
+    public delegate byte[] RawDataMapping();
 
+    private void Awake()
+    {
+        if (this != Instance)
+        {
+            GameObject.Destroy(this.gameObject);
+            return;
+        }
+        Setup();
+        DontDestroyOnLoad(gameObject);
+    }
+
+    /// <summary>
+    /// 何かあれば入れてください
+    /// </summary>
+    void Setup()
+    {
+
+    }
 }

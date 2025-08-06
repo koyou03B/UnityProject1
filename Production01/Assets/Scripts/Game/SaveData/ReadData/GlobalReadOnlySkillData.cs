@@ -6,15 +6,16 @@ public sealed partial class GlobalReadOnlySaveData
     private SkillDataPacker _SkillDataPacker = new SkillDataPacker();
 
     public SkillSlot[] SkillSlots { get { return _SkillSlots; } }
-    public SkillSlot GetSkillSlot(int index)
+    public void  FindSkillSlot(int index,ref SkillSlot slot)
     {
         if(index >= _SkillSlots.Length)
         {
             _Logger.LogWarning($"{index} is sizeOver for {_SkillSlots}");
-            index = 0;
         }
-
-        return _SkillSlots[index];
+        else
+        {
+            slot = _SkillSlots[index];
+        }
     }
 
     /// <summary>
@@ -28,7 +29,7 @@ public sealed partial class GlobalReadOnlySaveData
             _Logger.LogError($"{rawSkillSlotData} Failed to unpack input data.");
         }
 
-        if (type != (byte)SaveTypeEnum.eSaveCategory.Skill)
+        if (type != (byte)SaveLoadEnum.eSaveType.Skill)
         {
             _Logger.LogError($"Unexpected type: {type}");
         }

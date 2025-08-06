@@ -32,7 +32,7 @@ public class SkillSaveLoader
 
         byte[] payload = _SkillDataPacker.PackPayload(skillSlots, _Version);
 
-        var packData =  BytePacker.Pack((int)SaveTypeEnum.eSaveCategory.Skill, 0, payload);
+        var packData =  BytePacker.Pack((int)SaveLoadEnum.eSaveType.Skill, 0, payload);
         //Rawに保存
         GlobalRawSaveData.Instance.SetRawSkillData(packData);
     }
@@ -55,7 +55,7 @@ public class SkillSaveLoader
             _Logger.LogError("Failed to unpack input data.");
         }
 
-        if (type != (byte)SaveTypeEnum.eSaveCategory.Skill)
+        if (type != (byte)SaveLoadEnum.eSaveType.Skill)
         {
             _Logger.LogError($"Unexpected type: {type}");
         }
