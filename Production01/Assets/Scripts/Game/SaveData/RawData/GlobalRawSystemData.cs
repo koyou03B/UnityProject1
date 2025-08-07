@@ -22,12 +22,12 @@ public sealed partial class GlobalRawSaveData
     /// <param name="newData"></param>
     public void SetRawSystemData(byte[] newData)
     {
-        if (newData == null)
+        if (_RawSystemData == null || _RawSystemData.Length != newData.Length)
         {
             _RawSystemData = new byte[newData.Length];
         }
-        //配列は参照型なのでクローンする
-        _RawSystemData = (byte[])newData.Clone();
+
+        _RawSystemData = newData;
     }
     private void SetupRawSystemData()
     {

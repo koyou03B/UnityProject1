@@ -38,19 +38,11 @@ public class SaveLoadMapper : MonoBehaviour
 {
     private Dictionary<SaveLoadEnum.eSaveType, SaveLoadHooks> _dMappingActions;
 
-    //「変更があった部分」かつ「適用対象部分」として保存
-    private List<SaveLoadEnum.eSaveType> _AffectedSaveTypes;//affected:影響を受けた
-
-    public void ClearAffectedSaveTypes() => _AffectedSaveTypes.Clear();
-
-    public List<SaveLoadEnum.eSaveType> AffectedSaveTypes { get { return _AffectedSaveTypes; } }
-
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         var globalRaw = GlobalRawSaveData.Instance;
         var globalReadOnly = GlobalReadOnlySaveData.Instance;
-        _AffectedSaveTypes = new List<SaveLoadEnum.eSaveType>();
         _dMappingActions = new Dictionary<SaveLoadEnum.eSaveType, SaveLoadHooks>()
         {
             { SaveLoadEnum.eSaveType.System,new SaveLoadHooks(globalRaw.OnRawSystemDataMapping,globalRaw.SetRawSystemData,globalReadOnly.ParseSystemData)},
@@ -66,8 +58,6 @@ public class SaveLoadMapper : MonoBehaviour
     /// <returns></returns>
     public byte[] FindRawSaveData(SaveLoadEnum.eSaveType saveType)
     {
-        _AffectedSaveTypes.Add(saveType);
-
         bool isGet = _dMappingActions.TryGetValue(saveType, out SaveLoadHooks hooks);
         if (isGet)
         {

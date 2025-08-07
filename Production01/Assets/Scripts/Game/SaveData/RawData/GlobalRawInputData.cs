@@ -27,7 +27,7 @@ public sealed partial class GlobalRawSaveData
     /// <param name="newData"></param>
     public void SetRawInputData(byte[] newData)
     {
-        if (newData == null)
+        if (_RawInputData == null || _RawInputData.Length != newData.Length)
         {
             _RawInputData = new byte[newData.Length];
         }

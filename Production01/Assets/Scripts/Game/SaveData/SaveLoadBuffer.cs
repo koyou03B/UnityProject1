@@ -7,6 +7,8 @@ public class SaveLoadBuffer : MonoBehaviour
 {
     private SaveLoadMapper _SaveLoadMapper;
     private PrefixLogger _Logger;
+    //「変更があった部分」かつ「適用対象部分」として保存
+    private List<SaveLoadEnum.eSaveType> _AffectedSaveTypes;//affected:影響を受けた
     private byte[] _SaveLoadData;
 
     /// <summary>
@@ -27,6 +29,7 @@ public class SaveLoadBuffer : MonoBehaviour
     private void Start()
     {
         _Logger = new PrefixLogger(new UnityLogger(), "[SaveLoadBuffer]");
+        _AffectedSaveTypes = new List<SaveLoadEnum.eSaveType>();
     }
 
     /// <summary>
@@ -53,11 +56,14 @@ public class SaveLoadBuffer : MonoBehaviour
     /// </summary>
     public void Capture()
     {
+        _AffectedSaveTypes.Clear();
+
         List<byte> saveData = new List<byte>();
         var saveTypeArray = Enum.GetValues(typeof(SaveLoadEnum.eSaveType));
         foreach(SaveLoadEnum.eSaveType type in saveTypeArray)
         {
             if (type == SaveLoadEnum.eSaveType.AllData) continue;
+            _AffectedSaveTypes.Add(type);
             byte[] data = _SaveLoadMapper.FindRawSaveData(type);
             saveData.AddRange(data);
         }
@@ -86,13 +92,47 @@ public class SaveLoadBuffer : MonoBehaviour
         int startIndex, payloadSize = 0;
         foreach (var saveType in saveList)
         {
+            if (saveType == SaveLoadEnum.eSaveType.AllData)
+            {
+                _Logger.LogWarning($" {saveType} is inside saveList");
+                Capture();
+                _Logger.LogWarning($"{_SaveLoadData} was saved from Alldata located in {saveList}");
+            }
+
+            _AffectedSaveTypes.Add(saveType);
             GetSaveTypeInSaveLoadData(saveType, out startIndex, out payloadSize);
             if(startIndex == -1 && payloadSize == 0)
             {
                 _Logger.LogWarning($"_SaveLoadData dont find {saveType}");
                 Capture();
-                _Logger.LogWarning($"{_SaveLoadData} is all save");
+                _Logger.LogWarning($"{_SaveLoadData} was saved from Capture(saveList)");
                 break;
+            }
+            else
+            {
+                byte[] data = _SaveLoadMapper.FindRawSaveData(saveType);
+                if(data.Length == payloadSize)
+                {
+                    //上書きする
+                    Array.Copy(data, 0, _SaveLoadData, startIndex, payloadSize);
+                    _Logger.Log($"Updated {saveType} block in-place.");
+                }
+                else
+                {
+                    //サイズ違いで差し替えが必要
+                    List<byte> buffer = new List<byte>(_SaveLoadData.Length - payloadSize + data.Length);
+                    //前半のデータを追加
+                    buffer.AddRange(new ArraySegment<byte>(_SaveLoadData, 0, startIndex));
+                    //新しいデータを追加
+                    buffer.AddRange(data);
+                    //後半のデータを追加
+                    int tailStart = startIndex + payloadSize;
+                    int tailLength = _SaveLoadData.Length - tailStart;
+                    //不要なbyte[]の新規確保をせずに範囲指定コピーできる
+                    buffer.AddRange(new ArraySegment<byte>(_SaveLoadData, tailStart, tailLength));
+
+                    _SaveLoadData = buffer.ToArray();
+                }
             }
         }
         _Logger.Log($"{_SaveLoadData}{saveList} capture end");

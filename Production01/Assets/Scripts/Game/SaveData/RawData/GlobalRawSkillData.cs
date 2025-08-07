@@ -30,7 +30,7 @@ public  sealed partial class GlobalRawSaveData
     /// <param name="newData"></param>
     public void SetRawSkillData(byte[] newData)
     {
-        if (newData == null)
+        if (_RawSkillData == null || _RawSkillData.Length != newData.Length)
         {
             _RawSkillData = new byte[newData.Length];
         }
