@@ -1,5 +1,9 @@
-﻿using UnityEngine;
+﻿using System.Text;
+using UnityEngine;
 
+/// <summary>
+/// 各プラットフォームごとに設定できる
+/// </summary>
 public class SaveFileContext
 {
     private string _MountName;
@@ -8,17 +12,21 @@ public class SaveFileContext
     private string[] _SlotName;
 
     public string MountName { get { return _MountName; } }
-    public string SaveDataName { get { return _SaveDataName; } }
     public string SystemName { get { return _SystemName; } }
-    public string FindSlotName(int index)
+    public string SaveFileName(int index)
     {
+        StringBuilder sbStr = new StringBuilder();
+        sbStr.Append(_SaveDataName);
         if(index < 0 && index >= _SlotName.Length)
         {
             return null;
         }
 
-        return _SlotName[index];
+         sbStr.Append(_SlotName[index]);
+        return sbStr.ToString();
     }
+
+    
 
     public SaveFileContext(string mountName, string saveDataName, string systemName, string[] slotName)
     {

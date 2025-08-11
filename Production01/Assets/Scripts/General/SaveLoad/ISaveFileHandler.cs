@@ -26,4 +26,15 @@ public interface ISaveFileHandler
     /// </summary>
     /// <param name="fileName"></param>
     bool IsExistSaveData(string fileName);
+
+    /// <summary>
+    /// 書き込み中
+    /// </summary>
+    /// <returns></returns>
+    bool IsWritingSaveData();
+    /// <summary>
+    /// 読み込み中
+    /// </summary>
+    /// <returns></returns>
+    bool IsLoadingSaveData();
 }
