@@ -140,12 +140,35 @@ public class SaveLoadBuffer : MonoBehaviour
     }
 
     /// <summary>
+    /// SaveDataTypeで区切った部分だけ取り出す
+    /// </summary>
+    /// <param name="saveType"></param>
+    /// <param name="data"></param>
+    public void FindSaveLoadDataArray(SaveLoadEnum.eSaveType saveType,ref byte[] data)
+    {
+        int startIndex = 0;
+        int payloadSize = 0;
+        
+        GetSaveTypeInSaveLoadData(saveType, out startIndex, out payloadSize);
+        if (startIndex == -1 && payloadSize == 0)
+        {
+            data = new byte[0];
+            return;
+        }
+
+        data = new byte[payloadSize];
+        List<byte> buffer = new List<byte>(data.Length);
+        buffer.AddRange(new ArraySegment<byte>(_SaveLoadData, startIndex, startIndex + payloadSize));
+        data = buffer.ToArray();
+    }
+
+    /// <summary>
     /// セーブタイプのIndex位置をサイズの取得
     /// </summary>
     /// <param name="saveType"></param>
     /// <param name="startInex"></param>
     /// <param name="payloadSize"></param>
-    public void GetSaveTypeInSaveLoadData(SaveLoadEnum.eSaveType saveType,out int startIndex,out int payloadSize)
+    private void GetSaveTypeInSaveLoadData(SaveLoadEnum.eSaveType saveType,out int startIndex,out int payloadSize)
     {
         startIndex = -1;
         payloadSize = 0;

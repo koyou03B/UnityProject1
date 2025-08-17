@@ -2,8 +2,11 @@
 
 public abstract class PlatformSaveBase : MonoBehaviour
 {
+    protected readonly string PathSetting = "PathSetting!";
+    protected readonly string EmptySaveFile = "EmptySaveFile";
 
     protected SaveFileContext _SaveFileContext;
+    protected SaveLoadBuffer _SaveLoadBuffer;
 
     protected bool _IsWritingSaveData;
     protected bool _IsLoadingSaveData;

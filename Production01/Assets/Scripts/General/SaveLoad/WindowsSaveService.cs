@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.IO;
 using System.Text;
 using UnityEngine;
@@ -7,8 +8,10 @@ public class WindowsSaveService :PlatformSaveBase
 {
     private PrefixLogger _Logger;
 
-    private readonly string PathSetting = "PathSetting!";
-    private readonly string EmptySaveFile = "EmptySaveFile";
+    private void Awake()
+    {
+        _SaveLoadBuffer = GetComponent<SaveLoadBuffer>();
+    }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
@@ -20,11 +23,26 @@ public class WindowsSaveService :PlatformSaveBase
     public override void ReadSaveProcess(int slot, bool systemFile = false)
     {
         CheckDirectoryProcess(slot, systemFile);
+       IEnumerator ReadSave()
+        {
+
+            yield return null;
+        }
     }
 
     public override void WriteSaveProcess(int slot, bool systemFile = false)
     {
         CheckDirectoryProcess(slot, systemFile);
+
+        byte[] data = null;
+        if (systemFile)
+        {
+            _SaveLoadBuffer.FindSaveLoadDataArray(SaveLoadEnum.eSaveType.System, ref data);
+        }
+        else
+        {
+            
+        }
     }
 
     public override void DeleatSaveProcess(int slot, bool systemFile = false)
@@ -73,7 +91,32 @@ public class WindowsSaveService :PlatformSaveBase
         CheckDirectory(saveFile);
     }
 
-    private string CreateSaveFileName(int slot ,bool systemFile)
+    private void CheckDirectory(string path)
+    {
+        //パスに拡張子が付いているかを確認
+        if (path.LastIndexOf('.') != -1)
+        {
+            string gameSavePath = path.Substring(0, path.LastIndexOf('/'));
+            //pathが既存のディレクトリを参照しているかどうか
+            if (Directory.Exists(gameSavePath) == false)
+            {
+                //ディレクトリの作成(フォルダの作成)
+                Directory.CreateDirectory(gameSavePath);
+            }
+
+            return;
+        }
+
+
+        if (Directory.Exists(path) == false)
+        {
+            CreateDirectory(path);
+        }
+    }
+
+    private void CreateDirectory(string path) => Directory.CreateDirectory(path);
+
+    private string CreateSaveFileName(int slot, bool systemFile)
     {
         //セーブデータパスの有無をチェック
         StringBuilder sbStr = new StringBuilder();
@@ -104,29 +147,4 @@ public class WindowsSaveService :PlatformSaveBase
         }
         return sbStr.ToString();
     }
-
-    private void CheckDirectory(string path)
-    {
-        //パスに拡張子が付いているかを確認
-        if (path.LastIndexOf('.') != -1)
-        {
-            string gameSavePath = path.Substring(0, path.LastIndexOf('/'));
-            //pathが既存のディレクトリを参照しているかどうか
-            if (Directory.Exists(gameSavePath) == false)
-            {
-                //ディレクトリの作成(フォルダの作成)
-                Directory.CreateDirectory(gameSavePath);
-            }
-
-            return;
-        }
-
-
-        if (Directory.Exists(path) == false)
-        {
-            CreateDirectory(path);
-        }
-    }
-
-    private void CreateDirectory(string path) => Directory.CreateDirectory(path);
 }

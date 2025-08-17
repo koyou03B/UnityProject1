@@ -6,9 +6,12 @@ public static class SaveLoadEnum
     {
         AllData,
         System,
+        Input,  //入力 これシステム統合
+        Slot1,
+        Slot2,
+        Slot3,
         //ここから各ゲームごとの保存したい名称たち
         //例えばSkillとか
-        Input,  //入力 これシステム統合
         Skill,  //スキル
     }
 
