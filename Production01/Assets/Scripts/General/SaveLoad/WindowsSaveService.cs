@@ -17,22 +17,69 @@ public class WindowsSaveService :PlatformSaveBase
     void Start()
     {
         _Logger = new PrefixLogger(new UnityLogger(), "[WindowsSaveService]");
+        _ErrorObservable = new Observable<SaveLoadEnum.eSaveErrorType>();
+        //送る先ができたら追加しよう
+
+        //名前決め次第
         //SettingSaveFileContext();
     }
 
     public override void ReadSaveProcess(int slot, bool systemFile = false)
     {
-        CheckDirectoryProcess(slot, systemFile);
-       IEnumerator ReadSave()
-        {
+        int targetSlot = slot;
+        bool readSystemFile = systemFile;
+        string fileName = FindDirectoryProcess(slot, systemFile);
+        _IsLoadingSaveData = true;
 
+        StartCoroutine(ReadSave());
+        IEnumerator ReadSave()
+        {
+            byte[] data = null;
+            SaveLoadEnum.eSaveType saveType;
+            if (readSystemFile)
+            {
+                saveType = SaveLoadEnum.eSaveType.System;
+            }
+            else
+            {
+                saveType = SaveLoadEnum.eSaveType.Slot1 + targetSlot;
+            }
+
+            //ロード処理
+            using (FileStream fs = new System.IO.FileStream(fileName.ToString(), FileMode.Open))
+            {
+                data = new byte[fs.Length];
+                fs.Read(data, 0, data.Length);
+            }
             yield return null;
+
+            data = GlobalCrypt.AES.Decrypt(data);
+            if(data != null || data.Length != 0)
+            {
+                bool success = _SaveLoadBuffer.TrimToSingleBlock(ref data, saveType);
+                if(!success)
+                {
+                    //Errorの処理
+                    _ErrorObservable.SendNotify(SaveLoadEnum.eSaveErrorType.Coprupt);
+                    _IsLoadingSaveData = false;
+                }
+            }
+
+            _IsLoadingSaveData = false;
+            if (readSystemFile)
+            {
+                _SystemData = data;
+            }
+            else
+            {
+                _GameData[targetSlot] = data;
+            }
         }
     }
 
     public override void WriteSaveProcess(int slot, bool systemFile = false)
     {
-        CheckDirectoryProcess(slot, systemFile);
+        FindDirectoryProcess(slot, systemFile);
 
         byte[] data = null;
         if (systemFile)
@@ -41,32 +88,46 @@ public class WindowsSaveService :PlatformSaveBase
         }
         else
         {
-            
+            SaveLoadEnum.eSaveType saveType = SaveLoadEnum.eSaveType.System + slot;
+            _SaveLoadBuffer.FindSaveLoadDataArray(saveType, ref data);
+        }
+
+        int targetSlot = slot;
+        bool readSystemFile = systemFile;
+        string fileName = FindDirectoryProcess(slot, systemFile);
+        _IsWritingSaveData = true;
+
+        StartCoroutine(Save());
+
+        IEnumerator Save()
+        {
+            //AES128暗号化処理
+            byte[] _data = GlobalCrypt.AES.Encrypt(data);
+
+            yield return _data;
+
+            //セーブ処理
+            using (FileStream fs = new System.IO.FileStream(fileName, FileMode.Create))
+            {
+                using (BinaryWriter bw = new BinaryWriter(fs))
+                {
+                    bw.Write(_data);
+                }
+            }
+
+            _IsWritingSaveData = false;
         }
     }
 
     public override void DeleatSaveProcess(int slot, bool systemFile = false)
     {
-        string saveFile = CreateSaveFileName(slot,systemFile);
-        if(saveFile.Contains(PathSetting))
-        {
-            //何かしらで失敗成功かの通知は送るDelegateまたはオブザーバー
-
-        }
-        else if(saveFile.Contains(EmptySaveFile))
-        {
-            //何かしらで失敗成功かの通知は送るDelegateまたはオブザーバー
-
-        }
-
+        string saveFile = FindDirectoryProcess(slot,systemFile);
 
         if (File.Exists(saveFile))
         {
             File.Delete(saveFile);
             _Logger.Log($"Deleate Success! {saveFile}");
         }
-
-        //何かしらで失敗成功かの通知は送るDelegateまたはオブザーバー
     }
 
     public override bool IsExistSaveData()
@@ -75,20 +136,16 @@ public class WindowsSaveService :PlatformSaveBase
     }
 
 
-    private void CheckDirectoryProcess(int slot ,bool systemFile)
+    private string FindDirectoryProcess(int slot ,bool systemFile)
     {
         string saveFile = CreateSaveFileName(slot, systemFile);
-        if (saveFile.Contains(PathSetting))
+        if (saveFile.Contains(PathSetting) || saveFile.Contains(EmptySaveFile))
         {
-            //何かしらで失敗成功かの通知は送るDelegateまたはオブザーバー
-
-        }
-        else if (saveFile.Contains(EmptySaveFile))
-        {
-            //何かしらで失敗成功かの通知は送るDelegateまたはオブザーバー
-
+            _ErrorObservable.SendNotify(SaveLoadEnum.eSaveErrorType.NoSpaceFs);
         }
         CheckDirectory(saveFile);
+
+        return saveFile;
     }
 
     private void CheckDirectory(string path)

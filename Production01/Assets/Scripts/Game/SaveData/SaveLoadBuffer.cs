@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework.Constraints;
 
-public class SaveLoadBuffer : MonoBehaviour
+public partial class SaveLoadBuffer : MonoBehaviour
 {
     private SaveLoadMapper _SaveLoadMapper;
     private PrefixLogger _Logger;
@@ -89,7 +89,7 @@ public class SaveLoadBuffer : MonoBehaviour
             return;
         }
 
-        int startIndex, payloadSize = 0;
+        int startIndex, blockSize = 0;
         foreach (var saveType in saveList)
         {
             if (saveType == SaveLoadEnum.eSaveType.AllData)
@@ -100,100 +100,88 @@ public class SaveLoadBuffer : MonoBehaviour
             }
 
             _AffectedSaveTypes.Add(saveType);
-            GetSaveTypeInSaveLoadData(saveType, out startIndex, out payloadSize);
-            if(startIndex == -1 && payloadSize == 0)
+            GetSaveTypeInSaveLoadData(saveType, out startIndex, out blockSize);
+            if(startIndex == -1 && blockSize == 0)
             {
                 _Logger.LogWarning($"_SaveLoadData dont find {saveType}");
                 Capture();
                 _Logger.LogWarning($"{_SaveLoadData} was saved from Capture(saveList)");
-                break;
+                return;
             }
             else
             {
-                byte[] data = _SaveLoadMapper.FindRawSaveData(saveType);
-                if(data.Length == payloadSize)
+                byte[] newBlock = _SaveLoadMapper.FindRawSaveData(saveType);
+                if (newBlock == null || newBlock.Length < 6)
+                {
+                    _Logger.LogWarning($"Invalid new block for {saveType}. Skip.");
+                    continue;
+                }
+                if (newBlock.Length == blockSize)
                 {
                     //上書きする
-                    Array.Copy(data, 0, _SaveLoadData, startIndex, payloadSize);
-                    _Logger.Log($"Updated {saveType} block in-place.");
+                    Array.Copy(newBlock, 0, _SaveLoadData, startIndex, blockSize);
+                    _Logger.Log($"Updated {saveType} block in-place. len={blockSize}");
                 }
                 else
                 {
                     //サイズ違いで差し替えが必要
-                    List<byte> buffer = new List<byte>(_SaveLoadData.Length - payloadSize + data.Length);
+                    List<byte> buffer = new List<byte>(_SaveLoadData.Length - blockSize + newBlock.Length);
                     //前半のデータを追加
                     buffer.AddRange(new ArraySegment<byte>(_SaveLoadData, 0, startIndex));
                     //新しいデータを追加
-                    buffer.AddRange(data);
+                    buffer.AddRange(newBlock);
                     //後半のデータを追加
-                    int tailStart = startIndex + payloadSize;
+                    int tailStart = startIndex + blockSize;
                     int tailLength = _SaveLoadData.Length - tailStart;
                     //不要なbyte[]の新規確保をせずに範囲指定コピーできる
                     buffer.AddRange(new ArraySegment<byte>(_SaveLoadData, tailStart, tailLength));
 
                     _SaveLoadData = buffer.ToArray();
+                    _Logger.Log($"Replaced {saveType} block: old={blockSize}, new={newBlock.Length}, total={_SaveLoadData.Length}");
+
                 }
             }
         }
-        _Logger.Log($"{_SaveLoadData}{saveList} capture end");
+        _Logger.Log($"capture end. total={_SaveLoadData?.Length ?? 0}, types=[{string.Join(",", saveList)}]");
 
     }
 
-    /// <summary>
-    /// SaveDataTypeで区切った部分だけ取り出す
-    /// </summary>
-    /// <param name="saveType"></param>
-    /// <param name="data"></param>
-    public void FindSaveLoadDataArray(SaveLoadEnum.eSaveType saveType,ref byte[] data)
-    {
-        int startIndex = 0;
-        int payloadSize = 0;
-        
-        GetSaveTypeInSaveLoadData(saveType, out startIndex, out payloadSize);
-        if (startIndex == -1 && payloadSize == 0)
-        {
-            data = new byte[0];
-            return;
-        }
-
-        data = new byte[payloadSize];
-        List<byte> buffer = new List<byte>(data.Length);
-        buffer.AddRange(new ArraySegment<byte>(_SaveLoadData, startIndex, startIndex + payloadSize));
-        data = buffer.ToArray();
-    }
 
     /// <summary>
     /// セーブタイプのIndex位置をサイズの取得
     /// </summary>
     /// <param name="saveType"></param>
     /// <param name="startInex"></param>
-    /// <param name="payloadSize"></param>
-    private void GetSaveTypeInSaveLoadData(SaveLoadEnum.eSaveType saveType,out int startIndex,out int payloadSize)
+    /// <param name="dataSize"></param>
+    private void GetSaveTypeInSaveLoadData(SaveLoadEnum.eSaveType saveType,out int startIndex,out int blockSize)
     {
         startIndex = -1;
-        payloadSize = 0;
+        blockSize = 0;
 
         int i = 0;
         //「何の」「いつの」「どのくらいの」「data」の順
         while (i < _SaveLoadData.Length)
         {
+            // 範囲ガード（壊れ対策）
+            if (i + 6 > _SaveLoadData.Length) return;
+
             byte type = _SaveLoadData[i];
+            int sizeIndex = i + 2;//sizeの場所まで移動
+
+            int index = sizeIndex;
+            int payload = BitUtility.ReadInt(_SaveLoadData, ref index);
+
+            int currentBlockSize = 1 + 1 + 4 + payload;// type + version + size(4byte) + payload
+            if (i + currentBlockSize > _SaveLoadData.Length) return;
+
             if ((SaveLoadEnum.eSaveType)type == saveType)
             {
                 startIndex = i;
-
-                int index = i + 2; // type(1) + version(1)
-                payloadSize = BitUtility.ReadInt(_SaveLoadData, ref index);
+                blockSize = currentBlockSize;   // ← これだけ返す
                 return;
             }
-            else
-            {
-                int index = i + 2;
-                int size = BitUtility.ReadInt(_SaveLoadData, ref index);
 
-                // 次のtype位置へジャンプ
-                i += 1 + 1 + 4 + size; // type + version + size(4byte) + payload
-            }
+            i += currentBlockSize; // 次ブロック
         }
     }
 }

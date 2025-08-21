@@ -7,6 +7,10 @@ public abstract class PlatformSaveBase : MonoBehaviour
 
     protected SaveFileContext _SaveFileContext;
     protected SaveLoadBuffer _SaveLoadBuffer;
+    protected Observable<SaveLoadEnum.eSaveErrorType> _ErrorObservable;
+
+    protected byte[] _SystemData;
+    protected byte[][] _GameData;
 
     protected bool _IsWritingSaveData;
     protected bool _IsLoadingSaveData;
@@ -14,6 +18,9 @@ public abstract class PlatformSaveBase : MonoBehaviour
     public void SettingSaveFileContext(string mountName, string saveDataName, string systemName, string[] slotName)
     {
         _SaveFileContext = new SaveFileContext(mountName,saveDataName, systemName, slotName);
+        _SystemData = null;
+        _GameData = new byte[slotName.Length][];
+
         _IsWritingSaveData = false;
         _IsLoadingSaveData = false;
     }

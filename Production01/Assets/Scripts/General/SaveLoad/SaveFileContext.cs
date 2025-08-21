@@ -11,6 +11,7 @@ public class SaveFileContext
     private string _SystemName;
     private string[] _SlotName;
 
+
     public string MountName { get { return _MountName; } }
     public string SystemName { get { return _SystemName; } }
     public string SaveFileName(int index)

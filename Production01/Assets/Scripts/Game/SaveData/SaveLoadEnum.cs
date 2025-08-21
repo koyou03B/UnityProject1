@@ -2,6 +2,15 @@
 
 public static class SaveLoadEnum
 {
+    public enum eSaveErrorType
+    {
+        ShortageFs,
+        NoSpaceFs,    // 容量不足
+        Coprupt,      // 壊れている
+        UunkownError, // 不明なエラー
+    }
+
+
     public enum eSaveType
     {
         AllData,
