@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using UnityEditor.Overlays;
 using UnityEngine;
 
 /// <summary>
@@ -18,12 +19,13 @@ public class SaveFileContext
     {
         StringBuilder sbStr = new StringBuilder();
         sbStr.Append(_SaveDataName);
-        if(index < 0 && index >= _SlotName.Length)
+        if (index < 0 || index >= _SlotName.Length)
         {
             return null;
         }
 
-         sbStr.Append(_SlotName[index]);
+        sbStr.Append(_SlotName[index]);
+        sbStr.Append(".bin");
         return sbStr.ToString();
     }
 

@@ -8,10 +8,10 @@ using System.Collections.Generic;
 public class SaveLoadHooks
 {
     private readonly GlobalRawSaveData.RawDataMapping _OnBeforeSaveAction;//ファイルにセーブする前に
-    private readonly Action<byte[]> _OnBeforeDeserialize;//GlobalRawに飛ばすよう
+    private readonly Action<byte[],bool> _OnBeforeDeserialize;//GlobalRawに飛ばすよう
     private readonly Action<byte[]>　_OnAfterLoad;//GlobalReadOnlyに飛ばす用
 
-    public SaveLoadHooks(GlobalRawSaveData.RawDataMapping onBeforSaveAction, Action<byte[]> onBeforeDeserialize, Action<byte[]> onAfterLoad)
+    public SaveLoadHooks(GlobalRawSaveData.RawDataMapping onBeforSaveAction, Action<byte[],bool> onBeforeDeserialize, Action<byte[]> onAfterLoad)
     {
         _OnBeforeSaveAction = onBeforSaveAction;
         _OnBeforeDeserialize = onBeforeDeserialize;
@@ -29,7 +29,7 @@ public class SaveLoadHooks
     /// <param name="loadData"></param>
     public void SetGameState(byte[] loadData)
     {
-        _OnBeforeDeserialize?.Invoke(loadData);
+        _OnBeforeDeserialize?.Invoke(loadData,false);
         _OnAfterLoad?.Invoke(loadData);
     }
 }
@@ -47,7 +47,7 @@ public class SaveLoadMapper : MonoBehaviour
         {
             { SaveLoadEnum.eSaveType.System,new SaveLoadHooks(globalRaw.OnRawSystemDataMapping,globalRaw.SetRawSystemData,globalReadOnly.ParseSystemData)},
             { SaveLoadEnum.eSaveType.Input,new SaveLoadHooks(globalRaw.OnRawInputDataMapping,globalRaw.SetRawInputData,globalReadOnly.ParseInputData)},
-           // { SaveLoadEnum.eSaveType.Skill,new SaveLoadHooks(globalRaw.OnRawInputDataMapping,globalRaw.SetRawInputData,globalReadOnly.ParseInputData)},
+            { SaveLoadEnum.eSaveType.Skill,new SaveLoadHooks(globalRaw.OnRawSkillDataMapping,globalRaw.SetRawSkillData,globalReadOnly.ParseSkillData)},
         };
     }
 

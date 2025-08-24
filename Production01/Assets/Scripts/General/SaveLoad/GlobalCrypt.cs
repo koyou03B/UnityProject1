@@ -87,16 +87,16 @@ namespace GlobalCrypt
             aes.IV = System.Text.Encoding.UTF8.GetBytes(k_AesIV); //初期化ベクターの設定
 
             ICryptoTransform decryptor = aes.CreateDecryptor();
-            byte[] planeText = new byte[cryptData.Length];
             try
             {
                 using (MemoryStream memoryStream = new MemoryStream(cryptData))
                 {
                     using (CryptoStream cryptStream = new CryptoStream(memoryStream, decryptor, CryptoStreamMode.Read))
                     {
+                        using var outMs = new MemoryStream();
                         //暗号を解読
-                        cryptStream.Read(planeText, 0, planeText.Length);
-                        return planeText;
+                        cryptStream.CopyTo(outMs);//実際に読み取れた分だけ書かれる(内部でReadがおこなれる
+                        return outMs.ToArray();//余分なしのデータで返る
                     }
                 }
             }

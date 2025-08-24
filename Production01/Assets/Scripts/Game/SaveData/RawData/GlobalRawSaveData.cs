@@ -1,4 +1,7 @@
-﻿using UnityEngine;
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using UnityEngine;
 
 /// <summary>
 /// 生のデータ配列を保持する
@@ -10,6 +13,13 @@ public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRaw
 {
     public delegate byte[] RawDataMapping();
 
+    private List<SaveLoadEnum.eSaveType> _UpdateSaveTypeList;
+
+    /// <summary>
+    /// 読み取りとして扱いなさい
+    /// このデータを外でいじくることを禁じる
+    /// </summary>
+    public List<SaveLoadEnum.eSaveType> UpdateSaveTypeList => _UpdateSaveTypeList;
     private void Awake()
     {
         if (this != Instance)
@@ -21,11 +31,17 @@ public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRaw
         DontDestroyOnLoad(gameObject);
     }
 
+    public void ResetUpdateSaveType()
+    {
+        UpdateSaveTypeList.Clear();
+    }
+
+
     /// <summary>
     /// 何かあれば入れてください
     /// </summary>
-    void Setup()
+    private void Setup()
     {
-
+        _UpdateSaveTypeList = new List<SaveLoadEnum.eSaveType>();
     }
 }

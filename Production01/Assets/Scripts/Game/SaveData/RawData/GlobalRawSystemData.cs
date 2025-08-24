@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using UnityEditor;
+using UnityEngine;
 
 public sealed partial class GlobalRawSaveData
 {
@@ -20,7 +21,7 @@ public sealed partial class GlobalRawSaveData
     /// 新しいデータに書き換える
     /// </summary>
     /// <param name="newData"></param>
-    public void SetRawSystemData(byte[] newData)
+    public void SetRawSystemData(byte[] newData,bool updateSaveType = true)
     {
         if (_RawSystemData == null || _RawSystemData.Length != newData.Length)
         {
@@ -28,9 +29,25 @@ public sealed partial class GlobalRawSaveData
         }
 
         _RawSystemData = newData;
+        if(updateSaveType)
+        {
+            _UpdateSaveTypeList.Add(SaveLoadEnum.eSaveType.System);
+        }
     }
     private void SetupRawSystemData()
     {
-        _OnRawSystemDataMapping = new RawDataMapping(() => _RawSystemData);
+        _OnRawSystemDataMapping = new RawDataMapping(() => 
+        {
+            if (_RawSystemData == null || _RawSystemData.Length != 0)
+            {
+                //見つからない場合はそれ用を新しく作る
+                byte[] payload = new byte[1];
+                return BytePacker.Pack((byte)SaveLoadEnum.eSaveType.System, 0, payload);
+            }
+
+            return _RawSkillData;
+        }
+        
+        );
     }
 }

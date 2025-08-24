@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Collections.Generic;
+using NUnit.Framework;
+using UnityEngine;
 
 public abstract class PlatformSaveBase : MonoBehaviour
 {
@@ -14,6 +16,7 @@ public abstract class PlatformSaveBase : MonoBehaviour
 
     protected bool _IsWritingSaveData;
     protected bool _IsLoadingSaveData;
+    protected bool _IsDeleatingSaveData;
     
     public void SettingSaveFileContext(string mountName, string saveDataName, string systemName, string[] slotName)
     {
@@ -25,22 +28,36 @@ public abstract class PlatformSaveBase : MonoBehaviour
         _IsLoadingSaveData = false;
     }
 
-    public bool IsWritingSaveData()
-    {
-        return _IsWritingSaveData;
-    }
+    public bool IsWritingSaveData => _IsWritingSaveData;
 
-    public bool IsLoadingSaveData()
+    public bool IsLoadingSaveData => _IsLoadingSaveData;
+    public bool IsDeleatingSaveData => _IsDeleatingSaveData;
+
+    public void SendToSaveBuffer()
     {
-        return _IsWritingSaveData;
+        //システムは初め必ず作られるからこういう場合は無視でいい
+        if (_SystemData == null || _SystemData.Length == 0)
+        {
+            return;
+        }
+        List<byte> loadData = new List<byte>();
+        loadData.AddRange(_SystemData);
+        for (int i = 0; i < _GameData.Length; i++)
+        {
+            if (_GameData[i] != null && _GameData[i].Length != 0)
+            {
+                loadData.AddRange(_GameData[i]);
+            }
+        }
+
+        _SaveLoadBuffer.SetLoadData(loadData.ToArray());
     }
 
     
-    public virtual void WriteSaveProcess(int slot, bool systemFile = false) { }
-    public virtual void ReadSaveProcess(int slot, bool systemFile = false) { }
-    public virtual void DeleatSaveProcess(int slot,bool systemFile = false) {}
-    public virtual bool IsExistSaveData() { return false; }
-
+    public virtual void WriteSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) { }
+    public virtual void ReadSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) { }
+    public virtual void DeleatSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) {}
+    public virtual void DetermineRecoveryStrategy(SaveLoadEnum.eSaveLoadAction eSaveLoadAction, ref bool isRetry,ref bool isStop) {}
     /// <summary>
     /// セーブフォルダのパスを取得
     /// </summary>

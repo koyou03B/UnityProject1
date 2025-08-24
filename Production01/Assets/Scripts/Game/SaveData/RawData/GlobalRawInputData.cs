@@ -25,7 +25,7 @@ public sealed partial class GlobalRawSaveData
     /// 新しいデータに書き換える
     /// </summary>
     /// <param name="newData"></param>
-    public void SetRawInputData(byte[] newData)
+    public void SetRawInputData(byte[] newData,bool updateSaveType = true)
     {
         if (_RawInputData == null || _RawInputData.Length != newData.Length)
         {
@@ -33,6 +33,10 @@ public sealed partial class GlobalRawSaveData
         }
         //配列は参照型なのでクローンする
         _RawInputData = (byte[])newData.Clone();
+        if(updateSaveType)
+        {
+            _UpdateSaveTypeList.Add(SaveLoadEnum.eSaveType.Input);
+        }
     }
 
     /// <summary>
@@ -40,6 +44,18 @@ public sealed partial class GlobalRawSaveData
     /// </summary>
     private void SetupInputData()
     {
-        _OnRawInputDataMapping = new RawDataMapping(() => _RawInputData);
+        _OnRawInputDataMapping = new RawDataMapping(() =>
+        {
+            if (_RawInputData == null || _RawInputData.Length != 0)
+            {
+                //見つからない場合はそれ用を新しく作る
+                byte[] payload = new byte[1];
+                return BytePacker.Pack((byte)SaveLoadEnum.eSaveType.System, 0, payload);
+            }
+
+            return _RawSkillData;
+        }
+
+        );
     }
 }

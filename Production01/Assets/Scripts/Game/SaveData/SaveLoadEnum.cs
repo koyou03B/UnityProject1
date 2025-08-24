@@ -4,7 +4,7 @@ public static class SaveLoadEnum
 {
     public enum eSaveErrorType
     {
-        ShortageFs,
+        ShortageFs,   // ファイル作成不足
         NoSpaceFs,    // 容量不足
         Coprupt,      // 壊れている
         UunkownError, // 不明なエラー
@@ -24,4 +24,12 @@ public static class SaveLoadEnum
         Skill,  //スキル
     }
 
+    public enum eSaveLoadAction
+    {
+        None,
+        Save,
+        Load,
+        Deleate,
+        Error,
+    }
 }

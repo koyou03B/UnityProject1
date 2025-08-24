@@ -22,7 +22,7 @@ public sealed partial class GlobalReadOnlySaveData
     /// 読み取り専用のデータを作成
     /// </summary>
     /// <param name="raw"></param>
-    private void ParseSkillData(byte[] rawSkillSlotData)
+    public void ParseSkillData(byte[] rawSkillSlotData)
     {
         if (!BytePacker.TryUnpack(rawSkillSlotData, out byte type, out byte version, out byte[] payload))
         {

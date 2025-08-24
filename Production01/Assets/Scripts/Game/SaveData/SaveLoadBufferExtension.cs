@@ -54,11 +54,12 @@ public partial class SaveLoadBuffer : MonoBehaviour
     }
 
     /// <summary>
-    /// SaveDataTypeで区切った部分だけ取り出す
+    /// SaveDataTypeで区切ったブロックのサイズ分だけで構成しなおす
+    /// トップ層限定
     /// </summary>
     /// <param name="saveType"></param>
     /// <param name="data"></param>
-    public void FindSaveLoadDataArray(SaveLoadEnum.eSaveType saveType, ref byte[] data)
+    public void GetSaveLoadDataBlock(SaveLoadEnum.eSaveType saveType, ref byte[] data)
     {
         int startIndex = 0;
         int blockSize = 0;
@@ -70,8 +71,70 @@ public partial class SaveLoadBuffer : MonoBehaviour
             return;
         }
 
-        data = new byte[blockSize];
-        data = new ArraySegment<byte>(_SaveLoadData, startIndex, startIndex + blockSize).ToArray();
+        data = new ArraySegment<byte>(_SaveLoadData, startIndex, blockSize).ToArray();
     }
 
+    /// <summary>
+    /// セーブタイプのIndex位置をサイズの取得
+    /// Top層限定
+    /// </summary>
+    /// <param name="saveType"></param>
+    /// <param name="startInex"></param>
+    /// <param name="dataSize"></param>
+    private void GetSaveTypeInSaveLoadData(SaveLoadEnum.eSaveType saveType, out int startIndex, out int blockSize)
+    {
+        startIndex = -1;
+        blockSize = 0;
+
+        int i = 0;
+        //「何の」「いつの」「どのくらいの」「data」の順
+        while (i < _SaveLoadData.Length)
+        {
+            // 範囲ガード（壊れ対策）
+            if (i + 6 > _SaveLoadData.Length) return;
+
+            byte type = _SaveLoadData[i];
+            int sizeIndex = i + 2;//sizeの場所まで移動
+
+            int index = sizeIndex;
+            int payload = BitUtility.ReadInt(_SaveLoadData, ref index);
+
+            int currentBlockSize = 1 + 1 + 4 + payload;// type + version + size(4byte) + payload
+            if (i + currentBlockSize > _SaveLoadData.Length) return;
+
+            if ((SaveLoadEnum.eSaveType)type == saveType)
+            {
+                startIndex = i;
+                blockSize = currentBlockSize;   // ← これだけ返す
+                return;
+            }
+
+            i += currentBlockSize; // 次ブロック
+        }
+    }
+
+
+    /// <summary>
+    /// スロット内のデータでほしいものだけを区切ったサイズ分で構成しなおす
+    /// </summary>
+    /// <param name="slotType"></param>
+    /// <param name="innerType"></param>
+    /// <param name="data"></param>
+    public void GetSaveLoadDataInnerBlock(SaveLoadEnum.eSaveType slotType, SaveLoadEnum.eSaveType innerType, ref byte[] data)
+    {
+        //スロットの位置とサイズをもらう
+        FindSaveTypeBlockInfo(slotType, out int slotStart, out int slotBlockSize);
+
+        //slotのペイロード範囲の特定
+        int slotPayloadStart = slotStart + 6;
+        int slotPayloadLen = slotBlockSize - 6;
+
+        //ペイロード内でinnerTypeのサイズと位置をもらう
+        TryFindInnerInPayload(_SaveLoadData, slotPayloadStart, slotPayloadLen,
+                              innerType, out int innerAbsStart, out int innerOldSize);
+
+
+        data = new ArraySegment<byte>(_SaveLoadData, innerAbsStart, innerOldSize).ToArray();
+
+    }
 }
