@@ -2,52 +2,40 @@
 using System.Collections.Generic;
 using System.Threading;
 
-public class CancelTokenCollector
+public sealed class CancelTokenCollector : IDisposable
 {
-    private readonly List<CancellationTokenSource> _CancelTokenList = new List<CancellationTokenSource>();
+    private readonly List<CancellationTokenSource> _Sources = new();
+    private readonly object _Lock = new();
 
-    /// <summary>
-    /// トークンの作成
-    /// </summary>
-    /// <returns></returns>
-    public CancellationTokenSource CreateToken()
+    public CancellationToken CreateToken()
     {
-        Cleanup();
         var cts = new CancellationTokenSource();
-        _CancelTokenList.Add(cts);
-
-        return cts;
+        lock (_Lock)
+        {
+            _Sources.Add(cts);
+        }
+        return cts.Token;
     }
 
-    /// <summary>
-    /// すべてのトークンを削除
-    /// </summary>
     public void CancelAll()
     {
-        foreach(var cts in _CancelTokenList)
+        lock (_Lock)
         {
-            if(cts != null && !cts.IsCancellationRequested)
+            foreach (var cts in _Sources)
             {
-                cts.Cancel();
-                cts.Dispose();
+                try
+                {
+                    cts.Cancel();
+                    cts.Dispose();
+                }
+                catch { }
             }
+            _Sources.Clear();
         }
-        _CancelTokenList.Clear();
     }
 
-    /// <summary>
-    /// 必要のなくなったトークンのみ削除
-    /// </summary>
-    private void Cleanup()
+    public void Dispose()
     {
-        for (int i = _CancelTokenList.Count - 1; i >= 0; i--)
-        {
-            var cts = _CancelTokenList[i];
-            if (cts == null || cts.IsCancellationRequested)
-            {
-                cts?.Dispose();
-                _CancelTokenList.RemoveAt(i);
-            }
-        }
+        CancelAll(); // 破棄時には Cancel + Dispose 両方
     }
 }
