@@ -181,7 +181,7 @@ public class WindowsSaveService :PlatformSaveBase
         if (File.Exists(fileName))
         {
             File.Delete(fileName);
-            _Logger.Log($"Deleate Success! {fileName}");
+            _Logger.Log($"Delete Success! {fileName}");
         }
     }
 

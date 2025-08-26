@@ -62,7 +62,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
                 //残りのスロット分をセーブする
                 SlotDataLoad();
                 break;
-            case SaveLoadEnum.eSaveLoadAction.Deleate:
+            case SaveLoadEnum.eSaveLoadAction.Delete:
                 if(!_SaveService.IsDeleatingSaveData)
                 {
                     Reset();
@@ -183,10 +183,10 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// </summary>
     /// <param name="slotType"></param>
     /// <param name="systemSave"></param>
-    public void SetupDeleate(SaveLoadEnum.eSaveType slotType, bool systemSave = true)
+    public void SetupDelete(SaveLoadEnum.eSaveType slotType, bool systemSave = true)
     {
         _eSaveSlot = slotType;
-        _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.Deleate;
+        _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.Delete;
         _IsSystemData = systemSave;
         _IsSaveLoadAction = true;
 
@@ -251,11 +251,11 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
                     Reset();
                 }
                 break;
-            case SaveLoadEnum.eSaveLoadAction.Deleate:
+            case SaveLoadEnum.eSaveLoadAction.Delete:
                 if (isRetry)
                 {
                     //再度削除処理を行う
-                    SetupDeleate(_eSaveSlot, _IsSystemData);
+                    SetupDelete(_eSaveSlot, _IsSystemData);
                 }
                 else if (isStop)
                 {
