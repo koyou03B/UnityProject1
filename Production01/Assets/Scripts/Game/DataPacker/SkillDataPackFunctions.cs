@@ -18,9 +18,65 @@ public partial class SkillDataPacker : IDataPacker<SkillSlot[]>
         return payload.ToArray();
     }
 
+    private void SetDefaultPackage(byte version, SkillSlot[] data)
+    {
+        InputSystemKeyCode.eInputSystemKeyCode keyCode = InputSystemKeyCode.eInputSystemKeyCode.None;
+        SkillEnums.SkillCategory skillCategory = SkillEnums.SkillCategory.None;
+        uint tier = 0, id = 0;
+
+        for (int i = 0; i < CharacterSkillContext.MainSkillCount; i++)
+        {
+            switch (i)
+            {
+                case 0:
+                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.W;
+                    skillCategory = SkillEnums.SkillCategory.Offensive;
+                    tier = 0;
+                    id = 100;
+                    break;
+                case 1:
+                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.E;
+                    skillCategory = SkillEnums.SkillCategory.Offensive;
+                    tier = 0;
+                    id = 101;
+                    break;
+                case 2:
+                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.R;
+                    skillCategory = SkillEnums.SkillCategory.Offensive;
+                    tier = 0;
+                    id = 102;
+                    break;
+            }
+            data[i] = new SkillSlot(keyCode, skillCategory, tier, id);
+        }
+        for (int i = 0; i < CharacterSkillContext.SubSkillCount; i++)
+        {
+            switch (i)
+            {
+                case 0:
+                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.Alpha1;
+                    skillCategory = SkillEnums.SkillCategory.Support;
+                    tier = 0;
+                    id = 300;
+                    break;
+                case 1:
+                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.Alpha2;
+                    skillCategory = SkillEnums.SkillCategory.Support;
+                    tier = 0;
+                    id = 301;
+                    break;
+            }
+            data[CharacterSkillContext.MainSkillCount + i] = new SkillSlot(keyCode, skillCategory, tier, id);
+        }
+    }
+
     private bool UnPackVersion0(byte[] payload,SkillSlot[] slots)
     {
-        if (payload == null || payload.Length % 16 != 0) return false;
+        if (payload == null || payload.Length ==0 ||payload.Length % 16 != 0)
+        {
+            SetDefaultPackage(0, slots);
+            return true;
+        }
 
         int count = payload.Length / 16;
         int offset = 0;
@@ -36,4 +92,6 @@ public partial class SkillDataPacker : IDataPacker<SkillSlot[]>
 
         return true;
     }
+
+
 }

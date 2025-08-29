@@ -29,7 +29,7 @@ public partial class SaveLoadBuffer : MonoBehaviour
         _SaveLoadMapper = GetComponent<SaveLoadMapper>();
     }
 
-    private void Start()
+    public void Setup()
     {
         _Logger = new PrefixLogger(new UnityLogger(), "[SaveLoadBuffer]");
         _AffectedSaveTypes = new List<SaveLoadEnum.eSaveType>();

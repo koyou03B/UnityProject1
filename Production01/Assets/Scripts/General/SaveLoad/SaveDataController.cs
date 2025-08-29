@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErrorType>
 {
@@ -17,7 +18,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// <summary>
     /// セーブ/ロードが終わったかどうか
     /// </summary>
-    public bool isSaveLoadAction => _IsSaveLoadAction;
+    public bool IsSaveLoadAction => _IsSaveLoadAction;
     
     void Awake()
     {
@@ -27,13 +28,17 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public void Setup()
     {
         _eSaveSlot = SaveLoadEnum.eSaveType.Slot1;
         _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.None;
         _IsSaveLoadAction = false;
         _IsSystemData = false;
         _EndSlotLoad = false;
+
+        _SaveService.Setup();
+        _SaveLoadBuffer.Setup();
+        _SaveLoadMapper.Setup();
     }
 
     private void Reset()
@@ -74,6 +79,47 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
 
         }
     }
+
+    public void LoadSlotDataToGameState(SaveLoadEnum.eSaveType slot)
+    {
+        if (slot != _eSaveSlot) return;
+
+        _eSaveSlot = slot;
+        ApplySlotDataToGameData();
+    }
+
+    /// <summary>
+    /// 選択したSlotを反映させる
+    /// </summary>
+    private void ApplySlotDataToGameData()
+    {
+        var saveTypeArray = Enum.GetValues(typeof(SaveLoadEnum.eSaveType));
+        bool containsSlot = _SaveLoadBuffer.ContainsSaveTypeSlot(_eSaveSlot);
+        foreach (SaveLoadEnum.eSaveType saveType in saveTypeArray)
+        {
+            if (saveType == SaveLoadEnum.eSaveType.System ||
+                saveType == SaveLoadEnum.eSaveType.Input ||
+                saveType != SaveLoadEnum.eSaveType.Slot1 ||
+                saveType != SaveLoadEnum.eSaveType.Slot2 ||
+                saveType != SaveLoadEnum.eSaveType.Slot3)
+            {
+                continue;
+            }
+            byte[] data = null;
+
+            if (containsSlot)
+            {
+                _SaveLoadMapper.DeserializeSaveLoadData(data, saveType);
+            }
+            else
+            {
+                _SaveLoadBuffer.GetSaveLoadDataInnerBlock(_eSaveSlot, saveType, ref data);
+                _SaveLoadMapper.DeserializeSaveLoadData(data, saveType);
+            }
+
+        }
+    }
+
 
     /// <summary>
     /// セーブ処理準備
@@ -177,6 +223,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
                 break;
         }
     }
+
 
     /// <summary>
     /// 削除の準備

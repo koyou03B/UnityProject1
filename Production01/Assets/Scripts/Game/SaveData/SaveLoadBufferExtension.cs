@@ -54,6 +54,17 @@ public partial class SaveLoadBuffer : MonoBehaviour
     }
 
     /// <summary>
+    /// スロットが存在するかどうか
+    /// </summary>
+    /// <param name="saveSlot"></param>
+    /// <returns></returns>
+    public bool ContainsSaveTypeSlot(SaveLoadEnum.eSaveType saveSlot)
+    {
+        FindSaveTypeBlockInfo(saveSlot, out int startIndex, out int oldBlockSize);
+        return startIndex != -1 && oldBlockSize != 0;
+    }
+
+    /// <summary>
     /// SaveDataTypeで区切ったブロックのサイズ分だけで構成しなおす
     /// トップ層限定
     /// </summary>
@@ -67,7 +78,7 @@ public partial class SaveLoadBuffer : MonoBehaviour
         GetSaveTypeInSaveLoadData(saveType, out startIndex, out blockSize);
         if (startIndex == -1 && blockSize == 0)
         {
-            data = new byte[0];
+            data = BytePacker.Pack((byte)saveType, 0, null);
             return;
         }
 
@@ -130,11 +141,16 @@ public partial class SaveLoadBuffer : MonoBehaviour
         int slotPayloadLen = slotBlockSize - 6;
 
         //ペイロード内でinnerTypeのサイズと位置をもらう
-        TryFindInnerInPayload(_SaveLoadData, slotPayloadStart, slotPayloadLen,
-                              innerType, out int innerAbsStart, out int innerOldSize);
+        if(TryFindInnerInPayload(_SaveLoadData, slotPayloadStart, slotPayloadLen,
+                              innerType, out int innerAbsStart, out int innerOldSize))
+        {
+            data = new ArraySegment<byte>(_SaveLoadData, innerAbsStart, innerOldSize).ToArray();
+        }
+        else
+        {
+            data = BytePacker.Pack((byte)innerType, 0, null);
+        }
 
-
-        data = new ArraySegment<byte>(_SaveLoadData, innerAbsStart, innerOldSize).ToArray();
 
     }
 }

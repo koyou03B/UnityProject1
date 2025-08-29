@@ -39,7 +39,7 @@ public class SaveLoadMapper : MonoBehaviour
     private Dictionary<SaveLoadEnum.eSaveType, SaveLoadHooks> _dMappingActions;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public void Setup()
     {
         var globalRaw = GlobalRawSaveData.Instance;
         var globalReadOnly = GlobalReadOnlySaveData.Instance;

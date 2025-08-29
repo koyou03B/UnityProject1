@@ -41,7 +41,7 @@ public sealed partial class GlobalRawSaveData
             if (_RawSystemData == null || _RawSystemData.Length != 0)
             {
                 //見つからない場合はそれ用を新しく作る
-                byte[] payload = new byte[1];
+                byte[] payload = null;
                 return BytePacker.Pack((byte)SaveLoadEnum.eSaveType.System, 0, payload);
             }
 

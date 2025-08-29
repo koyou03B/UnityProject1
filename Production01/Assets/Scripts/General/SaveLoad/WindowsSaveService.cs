@@ -18,7 +18,7 @@ public class WindowsSaveService :PlatformSaveBase
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    public override void Setup()
     {
         _Logger = new PrefixLogger(new UnityLogger(), "[WindowsSaveService]");
 
@@ -198,45 +198,45 @@ public class WindowsSaveService :PlatformSaveBase
         isRetry = false;
     }
 
-    /// <summary>
-    /// ディレクトリがあるか。ないなら作成
-    /// </summary>
-    /// <param name="slot"></param>
-    /// <param name="systemFile"></param>
-    /// <returns></returns>
-    private string FindDirectoryProcess(SaveLoadEnum.eSaveType slotType, bool systemFile)
+/// <summary>
+/// ディレクトリがあるか。ないなら作成
+/// </summary>
+/// <param name="slot"></param>
+/// <param name="systemFile"></param>
+/// <returns></returns>
+private string FindDirectoryProcess(SaveLoadEnum.eSaveType slotType, bool systemFile)
+{
+    int slot = slotType switch
     {
-        int slot = slotType switch
-        {
-            SaveLoadEnum.eSaveType.Slot1 => 0,
-            SaveLoadEnum.eSaveType.Slot2 => 1,
-            SaveLoadEnum.eSaveType.Slot3 => 2,
-            _ => -1
-        };
+        SaveLoadEnum.eSaveType.Slot1 => 0,
+        SaveLoadEnum.eSaveType.Slot2 => 1,
+        SaveLoadEnum.eSaveType.Slot3 => 2,
+        _ => -1
+    };
 
-        if(slot == -1 && systemFile == false)
-        {
-            _Logger.LogError($"slotType {slotType} : Slot1,2,3 Only");
-            return null;
-        }
-
-        string saveFile = CreateSaveFileName(slot, systemFile);
-        if (saveFile.Contains(PathSetting) || saveFile.Contains(EmptySaveFile))
-        {
-            //パスもしくはファイル設定のミス
-            _ErrorObservable.SendNotify(SaveLoadEnum.eSaveErrorType.ShortageFs);
-            return null;
-        }
-        CheckDirectory(saveFile);
-
-        return saveFile;
+    if (slot == -1 && systemFile == false)
+    {
+        _Logger.LogError($"slotType {slotType} : Slot1,2,3 Only");
+        return null;
     }
 
-    /// <summary>
-    /// ディレクトリの確認
-    /// </summary>
-    /// <param name="path"></param>
-    private void CheckDirectory(string path)
+    string saveFile = CreateSaveFileName(slot, systemFile);
+    if (saveFile.Contains(PathSetting) || saveFile.Contains(EmptySaveFile))
+    {
+        //パスもしくはファイル設定のミス
+        _ErrorObservable.SendNotify(SaveLoadEnum.eSaveErrorType.ShortageFs);
+        return null;
+    }
+    CheckDirectory(saveFile);
+
+    return saveFile;
+}
+
+/// <summary>
+/// ディレクトリの確認
+/// </summary>
+/// <param name="path"></param>
+private void CheckDirectory(string path)
     {
         //パスに拡張子が付いているかを確認
         if (path.LastIndexOf('.') != -1)

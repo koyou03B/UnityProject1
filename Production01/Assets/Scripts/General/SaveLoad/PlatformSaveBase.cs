@@ -53,7 +53,8 @@ public abstract class PlatformSaveBase : MonoBehaviour
         _SaveLoadBuffer.SetLoadData(loadData.ToArray());
     }
 
-    
+
+    public virtual void Setup() { }
     public virtual void WriteSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) { }
     public virtual void ReadSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) { }
     public virtual void DeleatSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) {}
