@@ -335,4 +335,70 @@ public partial class SaveLoadBuffer : MonoBehaviour
         blockSize = 1 + 1 + 4 + payload;
         return offset + blockSize <= data.Length;
     }
+
+    // SaveLoadBuffer.cs のクラス内に追加
+    private static readonly SaveLoadTags.eTopTag[] TopBlockOrder = new[] {
+    SaveLoadTags.eTopTag.General,
+    SaveLoadTags.eTopTag.Slot1,
+    SaveLoadTags.eTopTag.Slot2,
+    SaveLoadTags.eTopTag.Slot3,
+};
+    private void SortTopBlocks()
+    {
+        if (_SaveLoadData == null || _SaveLoadData.Length < 6) return;
+        Dictionary<SaveLoadTags.eTopTag, byte[]> firstSeen = new Dictionary<SaveLoadTags.eTopTag, byte[]>();
+
+        int i = 0;
+        while (i < _SaveLoadData.Length)
+        {
+            if (!TryReadBlockSize(_SaveLoadData, i, out int bs))
+            {
+                _Logger?.LogWarning($"SortTopBlocks: bad block at {i}");
+                return;
+            }
+            var tagByte = _SaveLoadData[i];
+            var isTop = System.Enum.IsDefined(typeof(SaveLoadTags.eTopTag), (SaveLoadTags.eTopTag)tagByte);
+            if (isTop)
+            {
+                var top = (SaveLoadTags.eTopTag)tagByte;
+                if (!firstSeen.ContainsKey(top))
+                {
+                    firstSeen[top] = new System.ArraySegment<byte>(_SaveLoadData, i, bs).ToArray();
+                }
+            }
+
+            i += bs;
+        }
+
+        //順序の再構成
+        List<byte> buf = new List<byte>(_SaveLoadData.Length);
+        foreach (var t in TopBlockOrder)
+        {
+            if (firstSeen.TryGetValue(t, out var block))
+            {
+                buf.AddRange(block);
+            }
+        }
+
+        // 変化がなければスキップ
+        if (buf.Count != _SaveLoadData.Length || !ByteArrayEquals(_SaveLoadData, 0, buf))
+        {
+            _SaveLoadData = buf.ToArray();
+            _Logger?.Log("SortTopBlocks: reordered");
+        }
+
+
+        bool ByteArrayEquals(byte[] src, int offset, List<byte> other)
+        {
+            if (src == null) return other == null || other.Count == 0;
+            if (offset + other.Count > src.Length) return false;
+
+            for (int k = 0; k < other.Count; k++)
+            {
+                if (src[offset + k] != other[k]) return false;
+            }
+
+            return true;
+        }
+    }
 }
