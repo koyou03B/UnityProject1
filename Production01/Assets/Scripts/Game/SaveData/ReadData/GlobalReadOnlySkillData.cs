@@ -29,7 +29,7 @@ public sealed partial class GlobalReadOnlySaveData
             _Logger.LogError($"{rawSkillSlotData} Failed to unpack input data.");
         }
 
-        if (type != (byte)SaveLoadEnum.eSaveType.Skill)
+        if (type != (byte)SaveLoadTags.eInnerTypeTag.Skill)
         {
             _Logger.LogError($"Unexpected type: {type}");
         }

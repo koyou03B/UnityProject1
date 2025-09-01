@@ -7,8 +7,8 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     private SaveLoadMapper _SaveLoadMapper;
     private SaveLoadBuffer _SaveLoadBuffer;
 
+    private SaveLoadTags.eTopTag _eSaveSlot;
     private SaveLoadEnum.eSaveErrorType _eSaveErrorType;
-    private SaveLoadEnum.eSaveType _eSaveSlot;
     private SaveLoadEnum.eSaveLoadAction _eSaveLoadAction;
 
     private bool _IsSaveLoadAction;
@@ -30,7 +30,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     public void Setup()
     {
-        _eSaveSlot = SaveLoadEnum.eSaveType.Slot1;
+        _eSaveSlot = SaveLoadTags.eTopTag.Slot1;
         _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.None;
         _IsSaveLoadAction = false;
         _IsSystemData = false;
@@ -80,11 +80,11 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
         }
     }
 
-    public void LoadSlotDataToGameState(SaveLoadEnum.eSaveType slot)
+    public void LoadSlotDataToGameState(SaveLoadTags.eTopTag slotType)
     {
-        if (slot != _eSaveSlot) return;
+        if (slotType != _eSaveSlot) return;
 
-        _eSaveSlot = slot;
+        _eSaveSlot = slotType;
         ApplySlotDataToGameData();
     }
 
@@ -93,28 +93,27 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// </summary>
     private void ApplySlotDataToGameData()
     {
-        var saveTypeArray = Enum.GetValues(typeof(SaveLoadEnum.eSaveType));
-        bool containsSlot = _SaveLoadBuffer.ContainsSaveTypeSlot(_eSaveSlot);
-        foreach (SaveLoadEnum.eSaveType saveType in saveTypeArray)
+        var innerTypes = Enum.GetValues(typeof(SaveLoadTags.eInnerTypeTag));
+        bool containsSlot = _SaveLoadBuffer.ContainsTopBlock(_eSaveSlot);
+        foreach (SaveLoadTags.eInnerTypeTag inner in innerTypes)
         {
-            if (saveType == SaveLoadEnum.eSaveType.System ||
-                saveType == SaveLoadEnum.eSaveType.Input ||
-                saveType != SaveLoadEnum.eSaveType.Slot1 ||
-                saveType != SaveLoadEnum.eSaveType.Slot2 ||
-                saveType != SaveLoadEnum.eSaveType.Slot3)
+            if (inner == SaveLoadTags.eInnerTypeTag.Input ||
+                inner == SaveLoadTags.eInnerTypeTag.Option ||
+                inner == SaveLoadTags.eInnerTypeTag.GameSystem)
             {
                 continue;
             }
-            byte[] data = null;
 
+            byte[] data = null;
             if (containsSlot)
             {
-                _SaveLoadMapper.DeserializeSaveLoadData(data, saveType);
+                _SaveLoadBuffer.GetInnerBlock(_eSaveSlot, inner, ref data);
+                _SaveLoadMapper.DeserializeSaveLoadData(data, inner);
             }
             else
             {
-                _SaveLoadBuffer.GetSaveLoadDataInnerBlock(_eSaveSlot, saveType, ref data);
-                _SaveLoadMapper.DeserializeSaveLoadData(data, saveType);
+                data = BytePacker.Pack((byte)inner, 0, Array.Empty<byte>());
+                _SaveLoadMapper.DeserializeSaveLoadData(data, inner);
             }
 
         }
@@ -126,7 +125,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// </summary>
     /// <param name="slotType"></param>
     /// <param name="systemSave"></param>
-    public void SetupSave(SaveLoadEnum.eSaveType slotType, bool systemSave = true)
+    public void SetupSave(SaveLoadTags.eTopTag slotType, bool systemSave = true)
     {
         _eSaveSlot = slotType;
         _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.Save;
@@ -144,7 +143,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// </summary>
     /// <param name="slotType"></param>
     /// <param name="systemSave"></param>
-    private void PrepareSavePayload(SaveLoadEnum.eSaveType slotType)
+    private void PrepareSavePayload(SaveLoadTags.eTopTag slotType)
     {
         var saveList = GlobalRawSaveData.Instance.UpdateSaveTypeList;
         //部分的にキャプチャ(初めての時は全部キャプチャになる
@@ -158,18 +157,20 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     {
         var affectedSaveTypes = _SaveLoadBuffer.AffectedSaveTypes;
         
-        foreach(var saveType in affectedSaveTypes)
+        foreach(var inner in affectedSaveTypes)
         {
             byte[] data = null;
-            if (saveType == SaveLoadEnum.eSaveType.System || saveType == SaveLoadEnum.eSaveType.Input)
+            if (inner == SaveLoadTags.eInnerTypeTag.Input ||
+                inner == SaveLoadTags.eInnerTypeTag.Option ||
+                inner == SaveLoadTags.eInnerTypeTag.GameSystem)
             {
-                _SaveLoadBuffer.GetSaveLoadDataBlock(saveType,ref data);
+                _SaveLoadBuffer.GetInnerBlock(SaveLoadTags.eTopTag.General,inner,ref data);
             }
             else
             {
-                _SaveLoadBuffer.GetSaveLoadDataInnerBlock(_eSaveSlot,saveType, ref data);
+                _SaveLoadBuffer.GetInnerBlock(_eSaveSlot,inner, ref data);
             }
-            _SaveLoadMapper.DeserializeSaveLoadData(data, saveType);
+            _SaveLoadMapper.DeserializeSaveLoadData(data, inner);
         }
     }
 
@@ -181,7 +182,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
         _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.Load;
         _IsSaveLoadAction = true;
 
-        _eSaveSlot = SaveLoadEnum.eSaveType.System;
+        _eSaveSlot = SaveLoadTags.eTopTag.General;
     }
 
     /// <summary>
@@ -203,21 +204,21 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
 
         switch(_eSaveSlot)
         {
-            case SaveLoadEnum.eSaveType.System:
+            case SaveLoadTags.eTopTag.General:
                 //Systemの読み込みを始める
                 _SaveService.ReadSaveProcess(_eSaveSlot, true);
-                _eSaveSlot = SaveLoadEnum.eSaveType.Slot1;
+                _eSaveSlot = SaveLoadTags.eTopTag.Slot1;
 
                 break;
-            case SaveLoadEnum.eSaveType.Slot1:
+            case SaveLoadTags.eTopTag.Slot1:
                 _SaveService.ReadSaveProcess(_eSaveSlot, false);
-                _eSaveSlot = SaveLoadEnum.eSaveType.Slot2;
+                _eSaveSlot = SaveLoadTags.eTopTag.Slot2;
                 break;
-            case SaveLoadEnum.eSaveType.Slot2:
+            case SaveLoadTags.eTopTag.Slot2:
                 _SaveService.ReadSaveProcess(_eSaveSlot, false);
-                _eSaveSlot = SaveLoadEnum.eSaveType.Slot3;
+                _eSaveSlot = SaveLoadTags.eTopTag.Slot3;
                 break;
-            case SaveLoadEnum.eSaveType.Slot3:
+            case SaveLoadTags.eTopTag.Slot3:
                 _SaveService.ReadSaveProcess(_eSaveSlot, false);
                 _EndSlotLoad = true;
                 break;
@@ -230,7 +231,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// </summary>
     /// <param name="slotType"></param>
     /// <param name="systemSave"></param>
-    public void SetupDelete(SaveLoadEnum.eSaveType slotType, bool systemSave = true)
+    public void SetupDelete(SaveLoadTags.eTopTag slotType, bool systemSave = true)
     {
         _eSaveSlot = slotType;
         _eSaveLoadAction = SaveLoadEnum.eSaveLoadAction.Delete;
@@ -321,20 +322,20 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     {
         switch (_eSaveSlot)
         {
-            case SaveLoadEnum.eSaveType.Slot1://System中
-                _SaveService.ReadSaveProcess(SaveLoadEnum.eSaveType.System, true);
+            case SaveLoadTags.eTopTag.Slot1://System中
+                _SaveService.ReadSaveProcess(SaveLoadTags.eTopTag.General, true);
                 break;
-            case SaveLoadEnum.eSaveType.Slot2://Slot1中
-                _SaveService.ReadSaveProcess(SaveLoadEnum.eSaveType.Slot1, false);
+            case SaveLoadTags.eTopTag.Slot2://Slot1中
+                _SaveService.ReadSaveProcess(SaveLoadTags.eTopTag.Slot1, false);
                 break;
-            case SaveLoadEnum.eSaveType.Slot3://Slot2中もしくはSlot3中
+            case SaveLoadTags.eTopTag.Slot3://Slot2中もしくはSlot3中
                 if (!_EndSlotLoad)
                 {
-                    _SaveService.ReadSaveProcess(SaveLoadEnum.eSaveType.Slot2, false);
+                    _SaveService.ReadSaveProcess(SaveLoadTags.eTopTag.Slot2, false);
                 }
                 else
                 {
-                    _SaveService.ReadSaveProcess(SaveLoadEnum.eSaveType.Slot3, false);
+                    _SaveService.ReadSaveProcess(SaveLoadTags.eTopTag.Slot3, false);
                 }
                 break;
         }

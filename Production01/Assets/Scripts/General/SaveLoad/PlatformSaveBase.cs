@@ -29,7 +29,6 @@ public abstract class PlatformSaveBase : MonoBehaviour
     }
 
     public bool IsWritingSaveData => _IsWritingSaveData;
-
     public bool IsLoadingSaveData => _IsLoadingSaveData;
     public bool IsDeleatingSaveData => _IsDeleatingSaveData;
 
@@ -40,7 +39,7 @@ public abstract class PlatformSaveBase : MonoBehaviour
         {
             return;
         }
-        List<byte> loadData = new List<byte>();
+        List<byte> loadData = new List<byte>(_SystemData.Length + 1024);
         loadData.AddRange(_SystemData);
         for (int i = 0; i < _GameData.Length; i++)
         {
@@ -55,9 +54,9 @@ public abstract class PlatformSaveBase : MonoBehaviour
 
 
     public virtual void Setup() { }
-    public virtual void WriteSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) { }
-    public virtual void ReadSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) { }
-    public virtual void DeleatSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false) {}
+    public virtual void WriteSaveProcess(SaveLoadTags.eTopTag slotType, bool systemFile = false) { }
+    public virtual void ReadSaveProcess(SaveLoadTags.eTopTag slotType, bool systemFile = false) { }
+    public virtual void DeleatSaveProcess(SaveLoadTags.eTopTag slotType, bool systemFile = false) {}
     public virtual void DetermineRecoveryStrategy(SaveLoadEnum.eSaveLoadAction eSaveLoadAction, ref bool isRetry,ref bool isStop) {}
     /// <summary>
     /// セーブフォルダのパスを取得

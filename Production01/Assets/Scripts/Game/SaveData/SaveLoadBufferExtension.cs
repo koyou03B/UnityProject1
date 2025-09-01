@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
 
 public partial class SaveLoadBuffer : MonoBehaviour
@@ -11,7 +10,7 @@ public partial class SaveLoadBuffer : MonoBehaviour
     /// <param name="data"></param>
     /// <param name="saveType"></param>
     /// <returns></returns>
-    public bool TrimToSingleBlock(ref byte[] data, SaveLoadEnum.eSaveType saveType)
+    public bool TrimToSingleBlock(ref byte[] data, SaveLoadTags.eTopTag topTag)
     {
         if (data == null || data.Length < 6)
             return false;
@@ -23,17 +22,15 @@ public partial class SaveLoadBuffer : MonoBehaviour
             if (i + 6 > data.Length) return false;
 
             byte type = data[i];
-            int sizeIndex = i + 2;
-
             // size 読み取り
-            int idx = sizeIndex;
+            int idx = i + 2;
             int payload = BitUtility.ReadInt(data, ref idx);
             int blockSize = 1 + 1 + 4 + payload; // header(6) + payload
 
             // 壊れ対策: ブロックが配列をはみ出す
             if (blockSize <= 0 || i + blockSize > data.Length) return false;
 
-            if ((SaveLoadEnum.eSaveType)type == saveType)
+            if ((SaveLoadTags.eTopTag)type == topTag)
             {
                 // 目的のブロックだけにリサイズ
                 if (i == 0 && blockSize == data.Length)
@@ -58,9 +55,9 @@ public partial class SaveLoadBuffer : MonoBehaviour
     /// </summary>
     /// <param name="saveSlot"></param>
     /// <returns></returns>
-    public bool ContainsSaveTypeSlot(SaveLoadEnum.eSaveType saveSlot)
+    public bool ContainsTopBlock(SaveLoadTags.eTopTag topTag)
     {
-        FindSaveTypeBlockInfo(saveSlot, out int startIndex, out int oldBlockSize);
+        TryFindTopBlockInfo(topTag, out int startIndex, out int oldBlockSize);
         return startIndex != -1 && oldBlockSize != 0;
     }
 
@@ -68,17 +65,17 @@ public partial class SaveLoadBuffer : MonoBehaviour
     /// SaveDataTypeで区切ったブロックのサイズ分だけで構成しなおす
     /// トップ層限定
     /// </summary>
-    /// <param name="saveType"></param>
+    /// <param name="topType"></param>
     /// <param name="data"></param>
-    public void GetSaveLoadDataBlock(SaveLoadEnum.eSaveType saveType, ref byte[] data)
+    public void GetTopBlock(SaveLoadTags.eTopTag topType, ref byte[] data)
     {
         int startIndex = 0;
         int blockSize = 0;
 
-        GetSaveTypeInSaveLoadData(saveType, out startIndex, out blockSize);
+        GetSaveTypeInSaveLoadData(topType, out startIndex, out blockSize);
         if (startIndex == -1 && blockSize == 0)
         {
-            data = BytePacker.Pack((byte)saveType, 0, null);
+            data = BytePacker.Pack((byte)topType, 0, Array.Empty<byte>());
             return;
         }
 
@@ -92,7 +89,7 @@ public partial class SaveLoadBuffer : MonoBehaviour
     /// <param name="saveType"></param>
     /// <param name="startInex"></param>
     /// <param name="dataSize"></param>
-    private void GetSaveTypeInSaveLoadData(SaveLoadEnum.eSaveType saveType, out int startIndex, out int blockSize)
+    private void GetSaveTypeInSaveLoadData(SaveLoadTags.eTopTag saveType, out int startIndex, out int blockSize)
     {
         startIndex = -1;
         blockSize = 0;
@@ -113,14 +110,14 @@ public partial class SaveLoadBuffer : MonoBehaviour
             int currentBlockSize = 1 + 1 + 4 + payload;// type + version + size(4byte) + payload
             if (i + currentBlockSize > _SaveLoadData.Length) return;
 
-            if ((SaveLoadEnum.eSaveType)type == saveType)
+            if ((SaveLoadTags.eTopTag)type == saveType)
             {
                 startIndex = i;
-                blockSize = currentBlockSize;   // ← これだけ返す
+                blockSize = currentBlockSize;   //これだけ返す
                 return;
             }
 
-            i += currentBlockSize; // 次ブロック
+            i += currentBlockSize; //次ブロック
         }
     }
 
@@ -131,10 +128,10 @@ public partial class SaveLoadBuffer : MonoBehaviour
     /// <param name="slotType"></param>
     /// <param name="innerType"></param>
     /// <param name="data"></param>
-    public void GetSaveLoadDataInnerBlock(SaveLoadEnum.eSaveType slotType, SaveLoadEnum.eSaveType innerType, ref byte[] data)
+    public void GetInnerBlock(SaveLoadTags.eTopTag container, SaveLoadTags.eInnerTypeTag inner, ref byte[] data)
     {
         //スロットの位置とサイズをもらう
-        FindSaveTypeBlockInfo(slotType, out int slotStart, out int slotBlockSize);
+        TryFindTopBlockInfo(container, out int slotStart, out int slotBlockSize);
 
         //slotのペイロード範囲の特定
         int slotPayloadStart = slotStart + 6;
@@ -142,15 +139,13 @@ public partial class SaveLoadBuffer : MonoBehaviour
 
         //ペイロード内でinnerTypeのサイズと位置をもらう
         if(TryFindInnerInPayload(_SaveLoadData, slotPayloadStart, slotPayloadLen,
-                              innerType, out int innerAbsStart, out int innerOldSize))
+                              inner, out int innerAbsStart, out int innerOldSize))
         {
             data = new ArraySegment<byte>(_SaveLoadData, innerAbsStart, innerOldSize).ToArray();
         }
         else
         {
-            data = BytePacker.Pack((byte)innerType, 0, null);
+            data = BytePacker.Pack((byte)inner, 0, Array.Empty<byte>());
         }
-
-
     }
 }

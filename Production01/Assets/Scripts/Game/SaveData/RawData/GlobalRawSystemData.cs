@@ -1,4 +1,4 @@
-﻿using UnityEditor;
+﻿using System;
 using UnityEngine;
 
 public sealed partial class GlobalRawSaveData
@@ -28,21 +28,20 @@ public sealed partial class GlobalRawSaveData
             _RawSystemData = new byte[newData.Length];
         }
 
-        _RawSystemData = newData;
+        _RawSystemData = new ArraySegment<byte>(newData, 0, newData.Length).ToArray();
         if(updateSaveType)
         {
-            _UpdateSaveTypeList.Add(SaveLoadEnum.eSaveType.System);
+            _UpdateSaveTypeList.Add(SaveLoadTags.eInnerTypeTag.GameSystem);
         }
     }
     private void SetupRawSystemData()
     {
         _OnRawSystemDataMapping = new RawDataMapping(() => 
         {
-            if (_RawSystemData == null || _RawSystemData.Length != 0)
+            if (_RawSystemData == null || _RawSystemData.Length == 0)
             {
                 //見つからない場合はそれ用を新しく作る
-                byte[] payload = null;
-                return BytePacker.Pack((byte)SaveLoadEnum.eSaveType.System, 0, payload);
+                return BytePacker.Pack((byte)SaveLoadTags.eInnerTypeTag.GameSystem, 0, Array.Empty<byte>());
             }
 
             return _RawSkillData;

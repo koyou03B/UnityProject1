@@ -32,7 +32,7 @@ public class SkillSaveLoader
 
         byte[] payload = _SkillDataPacker.PackPayload(skillSlots, _Version);
 
-        var packData =  BytePacker.Pack((int)SaveLoadEnum.eSaveType.Skill, 0, payload);
+        var packData =  BytePacker.Pack((int)SaveLoadTags.eInnerTypeTag.Skill, 0, payload);
         //Rawに保存
         GlobalRawSaveData.Instance.SetRawSkillData(packData);
     }
@@ -44,18 +44,12 @@ public class SkillSaveLoader
     /// <param name="rawData"></param>
     public void LoadAllSkillSlotPack(byte[] packedData)
     {
-        if(packedData.Length == 0)
-        {
-            CreateDefaultSkillSlot();
-            return;
-        }
-
         if (!BytePacker.TryUnpack(packedData, out byte type, out byte version, out byte[] payload))
         {
             _Logger.LogError("Failed to unpack input data.");
         }
 
-        if (type != (byte)SaveLoadEnum.eSaveType.Skill)
+        if (type != (byte)SaveLoadTags.eInnerTypeTag.Skill)
         {
             _Logger.LogError($"Unexpected type: {type}");
         }
@@ -87,64 +81,5 @@ public class SkillSaveLoader
             subSkillSlot[i] = skillSlots[CharacterSkillContext.MainSkillCount + i];
         }
         _SkillContext.OnInitialize(ref mainSkillSlot, ref  subSkillSlot);
-    }
-
-    /// <summary>
-    /// デフォルトでセット
-    /// </summary>
-    private void CreateDefaultSkillSlot()
-    {
-        SkillSlot[] mainSkillSlot = new SkillSlot[CharacterSkillContext.MainSkillCount];
-        SkillSlot[] subSkillSlot = new SkillSlot[CharacterSkillContext.SubSkillCount];
-        InputSystemKeyCode.eInputSystemKeyCode keyCode = InputSystemKeyCode.eInputSystemKeyCode.None;
-        SkillEnums.SkillCategory skillCategory = SkillEnums.SkillCategory.None;
-        uint tier = 0, id = 0;
-
-        for (int i = 0; i < CharacterSkillContext.MainSkillCount;i++)
-        {
-            switch(i)
-            {
-                case 0:
-                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.W;
-                    skillCategory = SkillEnums.SkillCategory.Offensive;
-                    tier = 0;
-                    id = 100;
-                    break;
-                case 1:
-                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.E;
-                    skillCategory = SkillEnums.SkillCategory.Offensive;
-                    tier = 0;
-                    id = 101;
-                    break;
-                case 2:
-                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.R;
-                    skillCategory = SkillEnums.SkillCategory.Offensive;
-                    tier = 0;
-                    id = 102;
-                    break;
-            }
-            mainSkillSlot[i] = new SkillSlot(keyCode, skillCategory, tier, id);
-        }
-        for (int i = 0; i < CharacterSkillContext.SubSkillCount; i++)
-        {
-            switch (i)
-            {
-                case 0:
-                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.Alpha1;
-                    skillCategory = SkillEnums.SkillCategory.Support;
-                    tier = 0;
-                    id = 300;
-                    break;
-                case 1:
-                    keyCode = InputSystemKeyCode.eInputSystemKeyCode.Alpha2;
-                    skillCategory = SkillEnums.SkillCategory.Support;
-                    tier = 0;
-                    id = 301;
-                    break;
-            }
-            subSkillSlot[i] = new SkillSlot(keyCode, skillCategory, tier, id);
-        }
-
-        _SkillContext.OnInitialize(ref mainSkillSlot, ref subSkillSlot);
     }
 }

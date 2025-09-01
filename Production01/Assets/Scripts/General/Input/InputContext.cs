@@ -73,7 +73,7 @@ public class InputContext
         List<int> keyPack = _CustomInputKey.CreateSavePackKeyCode();
         byte[] payload =  _CustomInputKeyPacker.PackPayload(keyPack, _Version);
 
-        return BytePacker.Pack((byte)SaveLoadEnum.eSaveType.Input, _Version, payload);
+        return BytePacker.Pack((byte)SaveLoadTags.eInnerTypeTag.Input, _Version, payload);
     }
 
     /// <summary>

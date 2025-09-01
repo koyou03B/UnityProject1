@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public sealed partial class GlobalRawSaveData
 {
@@ -32,10 +33,10 @@ public sealed partial class GlobalRawSaveData
             _RawInputData = new byte[newData.Length];
         }
         //配列は参照型なのでクローンする
-        _RawInputData = (byte[])newData.Clone();
-        if(updateSaveType)
+        _RawInputData = new ArraySegment<byte>(newData, 0, newData.Length).ToArray();
+        if (updateSaveType)
         {
-            _UpdateSaveTypeList.Add(SaveLoadEnum.eSaveType.Input);
+            _UpdateSaveTypeList.Add(SaveLoadTags.eInnerTypeTag.Input);
         }
     }
 
@@ -46,14 +47,13 @@ public sealed partial class GlobalRawSaveData
     {
         _OnRawInputDataMapping = new RawDataMapping(() =>
         {
-            if (_RawInputData == null || _RawInputData.Length != 0)
+            if (_RawInputData == null || _RawInputData.Length == 0)
             {
                 //見つからない場合はそれ用を新しく作る
-                byte[] payload = new byte[1];
-                return BytePacker.Pack((byte)SaveLoadEnum.eSaveType.System, 0, payload);
+                return BytePacker.Pack((byte)SaveLoadTags.eInnerTypeTag.Input, 0, Array.Empty<byte>());
             }
 
-            return _RawSkillData;
+            return _RawInputData;
         }
 
         );

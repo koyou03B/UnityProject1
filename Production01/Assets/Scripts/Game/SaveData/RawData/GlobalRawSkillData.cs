@@ -4,7 +4,7 @@ using UnityEngine;
 /// <summary>
 /// SkillDataを纏めておく
 /// </summary>
-public  sealed partial class GlobalRawSaveData
+public sealed partial class GlobalRawSaveData
 {
     private byte[] _RawSkillData;
 
@@ -29,7 +29,7 @@ public  sealed partial class GlobalRawSaveData
     /// 新しいデータに書き換える
     /// </summary>
     /// <param name="newData"></param>
-    public void SetRawSkillData(byte[] newData,bool updateSaveType = true)
+    public void SetRawSkillData(byte[] newData, bool updateSaveType = true)
     {
         if (_RawSkillData == null || _RawSkillData.Length != newData.Length)
         {
@@ -37,9 +37,9 @@ public  sealed partial class GlobalRawSaveData
         }
         //配列は参照型なのでクローンする
         _RawSkillData = new ArraySegment<byte>(newData, 0, newData.Length).ToArray();
-        if(updateSaveType)
+        if (updateSaveType)
         {
-            _UpdateSaveTypeList.Add(SaveLoadEnum.eSaveType.Skill);
+            _UpdateSaveTypeList.Add(SaveLoadTags.eInnerTypeTag.Skill);
         }
     }
 
@@ -48,6 +48,17 @@ public  sealed partial class GlobalRawSaveData
     /// </summary>
     private void SetupSkillData()
     {
-        _OnRawSkillDataMapping = new RawDataMapping(() => _RawSkillData);
+        _OnRawSkillDataMapping = new RawDataMapping(() =>
+        {
+            if (_RawSkillData == null || _RawSkillData.Length == 0)
+            {
+                //見つからない場合はそれ用を新しく作る
+                return BytePacker.Pack((byte)SaveLoadTags.eInnerTypeTag.Skill, 0, Array.Empty<byte>());
+            }
+
+            return _RawSkillData;
+        }
+
+        );
     }
 }

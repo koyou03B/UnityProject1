@@ -32,7 +32,7 @@ public class WindowsSaveService :PlatformSaveBase
     /// </summary>
     /// <param name="slot"></param>
     /// <param name="systemFile"></param>
-    public override void ReadSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false)
+    public override void ReadSaveProcess(SaveLoadTags.eTopTag slotType, bool systemFile = false)
     {
         //取り出すセーブファイル名の作成
         string fileName = FindDirectoryProcess(slotType, systemFile);
@@ -48,22 +48,22 @@ public class WindowsSaveService :PlatformSaveBase
         IEnumerator ReadSave()
         {
             byte[] data = null;
-            SaveLoadEnum.eSaveType saveType;
-            if (systemFile)
-            {
-                saveType = SaveLoadEnum.eSaveType.System;
-            }
-            else
-            {
-                saveType = slotType;
-            }
+            SaveLoadTags.eTopTag topTag = systemFile ? SaveLoadTags.eTopTag.General : slotType;
 
-            //ロード処理
-            using (FileStream fs = new System.IO.FileStream(fileName.ToString(), FileMode.Open))
+            try
             {
-                long len = fs.Length;
-                data = new byte[(int)len];
-                fs.Read(data, 0, data.Length);
+                using (FileStream fs = new FileStream(fileName, FileMode.Open))
+                {
+                    long len = fs.Length;
+                    data = new byte[(int)len];
+                    fs.Read(data, 0, data.Length);
+                }
+            }
+            catch (Exception)
+            {
+                _ErrorObservable.SendNotify(SaveLoadEnum.eSaveErrorType.UunkownError);
+                _IsLoadingSaveData = false;
+                yield break;
             }
             yield return null;
 
@@ -72,7 +72,7 @@ public class WindowsSaveService :PlatformSaveBase
             if (data != null && data.Length != 0)
             {
                 //暗号化の影響で余分な配列データを含むのでトリミング
-                bool success = _SaveLoadBuffer.TrimToSingleBlock(ref data, saveType);
+                bool success = _SaveLoadBuffer.TrimToSingleBlock(ref data, topTag);
                 if (!success)
                 {
                     //Errorの処理
@@ -98,9 +98,9 @@ public class WindowsSaveService :PlatformSaveBase
             {
                 int slot = slotType switch
                 {
-                    SaveLoadEnum.eSaveType.Slot1 => 0,
-                    SaveLoadEnum.eSaveType.Slot2 => 1,
-                    SaveLoadEnum.eSaveType.Slot3 => 2,
+                    SaveLoadTags.eTopTag.Slot1 => 0,
+                    SaveLoadTags.eTopTag.Slot2 => 1,
+                    SaveLoadTags.eTopTag.Slot3 => 2,
                     _ => -1
                 };
                 //ここにきてる=-1は絶対にない
@@ -116,19 +116,17 @@ public class WindowsSaveService :PlatformSaveBase
     /// </summary>
     /// <param name="slot"></param>
     /// <param name="systemSave"></param>
-    public override void WriteSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemSave = false)
+    public override void WriteSaveProcess(SaveLoadTags.eTopTag slotType, bool systemSave = false)
     {
         byte[] data = null;
         if (systemSave)
         {
             //システムデータのみ取ってくる
-            _SaveLoadBuffer.GetSaveLoadDataBlock(SaveLoadEnum.eSaveType.System, ref data);
+            _SaveLoadBuffer.GetTopBlock(SaveLoadTags.eTopTag.General, ref data);
         }
         else
         {
-            //slot1～slot3を取得
-            SaveLoadEnum.eSaveType saveType = slotType;
-            _SaveLoadBuffer.GetSaveLoadDataBlock(saveType, ref data);
+            _SaveLoadBuffer.GetTopBlock(slotType, ref data);
         }
         //セーブファイル名の作成
         string fileName = FindDirectoryProcess(slotType, systemSave);
@@ -167,7 +165,7 @@ public class WindowsSaveService :PlatformSaveBase
     /// </summary>
     /// <param name="slot"></param>
     /// <param name="systemFile"></param>
-    public override void DeleatSaveProcess(SaveLoadEnum.eSaveType slotType, bool systemFile = false)
+    public override void DeleatSaveProcess(SaveLoadTags.eTopTag slotType, bool systemFile = false)
     {
         //セーブファイルのパス作成
         string fileName = FindDirectoryProcess(slotType, systemFile);
@@ -204,13 +202,13 @@ public class WindowsSaveService :PlatformSaveBase
 /// <param name="slot"></param>
 /// <param name="systemFile"></param>
 /// <returns></returns>
-private string FindDirectoryProcess(SaveLoadEnum.eSaveType slotType, bool systemFile)
+private string FindDirectoryProcess(SaveLoadTags.eTopTag slotType, bool systemFile)
 {
     int slot = slotType switch
     {
-        SaveLoadEnum.eSaveType.Slot1 => 0,
-        SaveLoadEnum.eSaveType.Slot2 => 1,
-        SaveLoadEnum.eSaveType.Slot3 => 2,
+        SaveLoadTags.eTopTag.Slot1 => 0,
+        SaveLoadTags.eTopTag.Slot2 => 1,
+        SaveLoadTags.eTopTag.Slot3 => 2,
         _ => -1
     };
 

@@ -36,18 +36,17 @@ public class SaveLoadHooks
 
 public class SaveLoadMapper : MonoBehaviour
 {
-    private Dictionary<SaveLoadEnum.eSaveType, SaveLoadHooks> _dMappingActions;
+    private Dictionary<SaveLoadTags.eInnerTypeTag, SaveLoadHooks> _dMappingActions;
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     public void Setup()
     {
         var globalRaw = GlobalRawSaveData.Instance;
         var globalReadOnly = GlobalReadOnlySaveData.Instance;
-        _dMappingActions = new Dictionary<SaveLoadEnum.eSaveType, SaveLoadHooks>()
+        _dMappingActions = new Dictionary<SaveLoadTags.eInnerTypeTag, SaveLoadHooks>()
         {
-            { SaveLoadEnum.eSaveType.System,new SaveLoadHooks(globalRaw.OnRawSystemDataMapping,globalRaw.SetRawSystemData,globalReadOnly.ParseSystemData)},
-            { SaveLoadEnum.eSaveType.Input,new SaveLoadHooks(globalRaw.OnRawInputDataMapping,globalRaw.SetRawInputData,globalReadOnly.ParseInputData)},
-            { SaveLoadEnum.eSaveType.Skill,new SaveLoadHooks(globalRaw.OnRawSkillDataMapping,globalRaw.SetRawSkillData,globalReadOnly.ParseSkillData)},
+            { SaveLoadTags.eInnerTypeTag.Input,new SaveLoadHooks(globalRaw.OnRawInputDataMapping,globalRaw.SetRawInputData,globalReadOnly.ParseInputData)},
+            { SaveLoadTags.eInnerTypeTag.Skill,new SaveLoadHooks(globalRaw.OnRawSkillDataMapping,globalRaw.SetRawSkillData,globalReadOnly.ParseSkillData)},
         };
     }
 
@@ -56,7 +55,7 @@ public class SaveLoadMapper : MonoBehaviour
     /// </summary>
     /// <param name="saveType"></param>
     /// <returns></returns>
-    public byte[] FindRawSaveData(SaveLoadEnum.eSaveType saveType)
+    public byte[] FindRawSaveData(SaveLoadTags.eInnerTypeTag saveType)
     {
         bool isGet = _dMappingActions.TryGetValue(saveType, out SaveLoadHooks hooks);
         if (isGet)
@@ -64,8 +63,7 @@ public class SaveLoadMapper : MonoBehaviour
             return hooks.GetRawSaveData;
         }
         //見つからない場合はそれ用を新しく作る
-        byte[] payload = new byte[1];
-        return BytePacker.Pack((byte)saveType, 0, payload);
+        return BytePacker.Pack((byte)saveType, 0, Array.Empty<byte>());
     }
 
     /// <summary>
@@ -73,7 +71,7 @@ public class SaveLoadMapper : MonoBehaviour
     /// </summary>
     /// <param name="data"></param>
     /// <param name="saveType"></param>
-    public void DeserializeSaveLoadData(byte[] data, SaveLoadEnum.eSaveType saveType)
+    public void DeserializeSaveLoadData(byte[] data, SaveLoadTags.eInnerTypeTag saveType)
     {
         _dMappingActions[saveType].SetGameState(data);
     }

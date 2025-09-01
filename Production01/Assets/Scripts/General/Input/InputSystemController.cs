@@ -77,7 +77,7 @@ public class InputSystemController : SingletonMonoBehavior<InputSystemController
             _Logger.LogError("Failed to unpack input data.");
         }
 
-        if (type != (byte)SaveLoadEnum.eSaveType.Input)
+        if (type != (byte)SaveLoadTags.eInnerTypeTag.Input)
         {
             _Logger.LogError($"Unexpected type: {type}");
         }

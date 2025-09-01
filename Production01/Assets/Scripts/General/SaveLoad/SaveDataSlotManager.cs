@@ -5,7 +5,7 @@ using UnityEngine;
 public class SaveDataSlotManager : SingletonMonoBehavior<SaveDataSlotManager>
 {
     private SaveDataController _SaveDataCtrl;
-    private SaveLoadEnum.eSaveType _eSaveSlot;
+    private SaveLoadTags.eTopTag _eSaveSlot;
     public bool EndSaveLoadAction => !_SaveDataCtrl.IsSaveLoadAction;
 
     private void Awake()
@@ -35,7 +35,7 @@ public class SaveDataSlotManager : SingletonMonoBehavior<SaveDataSlotManager>
     {
         _SaveDataCtrl.SetupSave(_eSaveSlot, true);
     }
-    public void SaveSlotData(SaveLoadEnum.eSaveType slot)
+    public void SaveSlotData(SaveLoadTags.eTopTag slot)
     {
         if(slot != _eSaveSlot)
         {
@@ -44,7 +44,7 @@ public class SaveDataSlotManager : SingletonMonoBehavior<SaveDataSlotManager>
         _SaveDataCtrl.SetupSave(_eSaveSlot, true);
     }
 
-    public void DeleteSaveFiile(SaveLoadEnum.eSaveType slot,bool systemFile)
+    public void DeleteSaveFiile(SaveLoadTags.eTopTag slot,bool systemFile)
     {
         _SaveDataCtrl.SetupDelete(slot, systemFile);
     }

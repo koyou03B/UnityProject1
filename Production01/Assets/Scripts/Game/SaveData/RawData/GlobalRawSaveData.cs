@@ -13,13 +13,13 @@ public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRaw
 {
     public delegate byte[] RawDataMapping();
 
-    private List<SaveLoadEnum.eSaveType> _UpdateSaveTypeList;
+    private List<SaveLoadTags.eInnerTypeTag> _UpdateSaveTypeList;
 
     /// <summary>
     /// 読み取りとして扱いなさい
     /// このデータを外でいじくることを禁じる
     /// </summary>
-    public List<SaveLoadEnum.eSaveType> UpdateSaveTypeList => _UpdateSaveTypeList;
+    public List<SaveLoadTags.eInnerTypeTag> UpdateSaveTypeList => _UpdateSaveTypeList;
     private void Awake()
     {
         if (this != Instance)
@@ -42,6 +42,6 @@ public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRaw
     /// </summary>
     private void Setup()
     {
-        _UpdateSaveTypeList = new List<SaveLoadEnum.eSaveType>();
+        _UpdateSaveTypeList = new List<SaveLoadTags.eInnerTypeTag>();
     }
 }
