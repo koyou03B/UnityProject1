@@ -346,8 +346,8 @@ public partial class SaveLoadBuffer : MonoBehaviour
     private void SortTopBlocks()
     {
         if (_SaveLoadData == null || _SaveLoadData.Length < 6) return;
-        Dictionary<SaveLoadTags.eTopTag, byte[]> firstSeen = new Dictionary<SaveLoadTags.eTopTag, byte[]>();
-
+        var firstSeen = new Dictionary<SaveLoadTags.eTopTag, (int start, int size)>();
+        List<SaveLoadTags.eTopTag> encounteredOrder = new List<SaveLoadTags.eTopTag>();
         int i = 0;
         while (i < _SaveLoadData.Length)
         {
@@ -363,42 +363,47 @@ public partial class SaveLoadBuffer : MonoBehaviour
                 var top = (SaveLoadTags.eTopTag)tagByte;
                 if (!firstSeen.ContainsKey(top))
                 {
-                    firstSeen[top] = new System.ArraySegment<byte>(_SaveLoadData, i, bs).ToArray();
+                    firstSeen[top] = (i, bs);
+                    encounteredOrder.Add(top);
                 }
             }
 
             i += bs;
         }
 
-        //順序の再構成
-        List<byte> buf = new List<byte>(_SaveLoadData.Length);
+        //規約順にそん愛する物だけを並べた正しい順を作る
+        List<SaveLoadTags.eTopTag> canonicalOrder = new List<SaveLoadTags.eTopTag>(4);
         foreach (var t in TopBlockOrder)
         {
-            if (firstSeen.TryGetValue(t, out var block))
+            if (firstSeen.ContainsKey(t))
             {
-                buf.AddRange(block);
+                canonicalOrder.Add(t);
             }
         }
 
-        // 変化がなければスキップ
-        if (buf.Count != _SaveLoadData.Length || !ByteArrayEquals(_SaveLoadData, 0, buf))
+        //順番がしっかりしてるかの確認
+        if(encounteredOrder.Count == canonicalOrder.Count)
         {
-            _SaveLoadData = buf.ToArray();
-            _Logger?.Log("SortTopBlocks: reordered");
-        }
-
-
-        bool ByteArrayEquals(byte[] src, int offset, List<byte> other)
-        {
-            if (src == null) return other == null || other.Count == 0;
-            if (offset + other.Count > src.Length) return false;
-
-            for (int k = 0; k < other.Count; k++)
+            bool alreadyCanonical = true;
+            for(int j = 0;j<encounteredOrder.Count;j++)
             {
-                if (src[offset + k] != other[k]) return false;
+                if (encounteredOrder[j] != canonicalOrder[j])
+                { 
+                    alreadyCanonical = false;
+                    break; 
+                }
             }
-
-            return true;
+            if (alreadyCanonical) return;
         }
+
+        List<byte> buf = new List<byte>(_SaveLoadData.Length);
+        foreach(var order in canonicalOrder)
+        {
+            var seg = firstSeen[order];
+            buf.AddRange(new ArraySegment<byte>(_SaveLoadData, seg.start, seg.size));
+        }
+
+        _SaveLoadData = buf.ToArray();
+        _Logger?.Log("SortTopBlocks: reordered");
     }
 }
