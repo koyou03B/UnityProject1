@@ -14,12 +14,16 @@ public class SaveDataSlotManager : SingletonMonoBehavior<SaveDataSlotManager>
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
-    void Start()
+    //void Start()
+    //{
+    //    _SaveDataCtrl.Setup();
+    //    LoadAllDataFromFile();
+    //}
+    public void Setup()
     {
         _SaveDataCtrl.Setup();
         LoadAllDataFromFile();
     }
-
     // Update is called once per frame
     void Update()
     {

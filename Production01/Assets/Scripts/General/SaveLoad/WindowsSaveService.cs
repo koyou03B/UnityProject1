@@ -22,10 +22,16 @@ public class WindowsSaveService :PlatformSaveBase
     {
         _Logger = new PrefixLogger(new UnityLogger(), "[WindowsSaveService]");
 
+        _SaveLoadBuffer = GetComponent<SaveLoadBuffer>();
+        var saveDataCtrl = GetComponent<SaveDataController>();
+
+        _ErrorObservable = new Observable<SaveLoadEnum.eSaveErrorType>();
+        _ErrorObservable.RegistObserver(saveDataCtrl, saveDataCtrl.GetInstanceID());
 
         //名前決め次第
-        //SettingSaveFileContext();
+        //SettingSaveFileContext("", "", "", new string[3] { "", "","" });
     }
+
 
     /// <summary>
     /// 読み取り

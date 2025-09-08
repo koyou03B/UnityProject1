@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
+using System;
 public partial class CustomInputKeyPacker : IDataPacker<List<int>>
 {
     public const byte Version0 = 0;
@@ -17,13 +18,13 @@ public partial class CustomInputKeyPacker : IDataPacker<List<int>>
         return new byte[0];
     }
 
-    public bool TryUnpackPayload(byte[] payload, byte version, out List<int> slots)
+    public bool TryUnpackPayload(ReadOnlySpan<byte> payload, byte version, out List<int> slots)
     {
         slots = new List<int>();
         switch (version)
         {
             case Version0:
-                return UnPackVersion0(payload, slots);
+                return UnPackVersion0(payload.ToArray(), slots);
         }
         _Logger.LogError($"Unsupported version: {version}");
         return false;

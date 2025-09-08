@@ -20,16 +20,7 @@ public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRaw
     /// このデータを外でいじくることを禁じる
     /// </summary>
     public List<SaveLoadTags.eInnerTypeTag> UpdateSaveTypeList => _UpdateSaveTypeList;
-    private void Awake()
-    {
-        if (this != Instance)
-        {
-            GameObject.Destroy(this.gameObject);
-            return;
-        }
-        Setup();
-        DontDestroyOnLoad(gameObject);
-    }
+
 
     public void ResetUpdateSaveType()
     {
@@ -40,8 +31,13 @@ public sealed partial  class GlobalRawSaveData : SingletonMonoBehavior<GlobalRaw
     /// <summary>
     /// 何かあれば入れてください
     /// </summary>
-    private void Setup()
+    public void Setup()
     {
         _UpdateSaveTypeList = new List<SaveLoadTags.eInnerTypeTag>();
+
+        //重くなってそうならStartに移動
+        SetupInputData();
+        SetupRawSystemData();
+        SetupSkillData();
     }
 }

@@ -1,8 +1,9 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public interface IDataPacker<T>
 {
     byte[] PackPayload(T data, byte version);
-    bool TryUnpackPayload(byte[] bytes, byte version, out T data);
+    bool TryUnpackPayload(ReadOnlySpan<byte> payload, byte version, out T data);
 
 }

@@ -11,13 +11,7 @@ public sealed partial class GlobalReadOnlySaveData : SingletonMonoBehavior<Globa
 
     private void Awake()
     {
-        if (this != Instance)
-        {
-            GameObject.Destroy(this.gameObject);
-            return;
-        }
         Setup();
-        DontDestroyOnLoad(gameObject);
     }
 
     /// <summary>

@@ -36,7 +36,7 @@ public sealed partial class GlobalRawSaveData
             _RawSkillData = new byte[newData.Length];
         }
         //配列は参照型なのでクローンする
-        _RawSkillData = new ArraySegment<byte>(newData, 0, newData.Length).ToArray();
+        Buffer.BlockCopy(newData, 0, _RawSkillData, 0, newData.Length);
         if (updateSaveType)
         {
             _UpdateSaveTypeList.Add(SaveLoadTags.eInnerTypeTag.Skill);

@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 public partial class SkillDataPacker : IDataPacker<SkillSlot[]>
 {
@@ -17,13 +18,13 @@ public partial class SkillDataPacker : IDataPacker<SkillSlot[]>
         return new byte[0];
     }
 
-    public bool TryUnpackPayload(byte[] payload, byte version, out SkillSlot[] slots)
+    public bool TryUnpackPayload(ReadOnlySpan<byte> payload, byte version, out SkillSlot[] slots)
     {
         switch (version)
         {
             case Version0:
                 slots = new SkillSlot[SlotCountV0];
-                return UnPackVersion0(payload, slots);
+                return UnPackVersion0(payload.ToArray(), slots);
         }
         slots = new SkillSlot[CharacterSkillContext.MainSkillCount + CharacterSkillContext.SubSkillCount];
         _Logger.LogError($"Unsupported version: {version}");

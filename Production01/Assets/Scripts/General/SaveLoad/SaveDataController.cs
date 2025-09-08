@@ -22,7 +22,7 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     
     void Awake()
     {
-        _SaveService = GetComponent<WindowsSaveService>();
+        _SaveService = gameObject.GetComponent<WindowsSaveService>();
         _SaveLoadBuffer = GetComponent<SaveLoadBuffer>();
         _SaveLoadMapper = GetComponent<SaveLoadMapper>();
     }
@@ -190,19 +190,18 @@ public class SaveDataController : MonoBehaviour,IObserver<SaveLoadEnum.eSaveErro
     /// </summary>
     private void SlotDataLoad()
     {
-        if (!_SaveService.IsLoadingSaveData)
+        if (_SaveService.IsLoadingSaveData) return;
+
+        //最後まで終わっているのなら
+        if (_EndSlotLoad)
         {
-            //最後まで終わっているのなら
-            if(_EndSlotLoad)
-            {
-                _EndSlotLoad = false;
-                //ロードデータを送る
-                _SaveService.SendToSaveBuffer();
-                Reset();
-            }
+            _EndSlotLoad = false;
+            //ロードデータを送る
+            _SaveService.SendToSaveBuffer();
+            Reset();
         }
 
-        switch(_eSaveSlot)
+        switch (_eSaveSlot)
         {
             case SaveLoadTags.eTopTag.General:
                 //Systemの読み込みを始める
