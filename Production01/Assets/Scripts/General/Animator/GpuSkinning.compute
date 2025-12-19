@@ -1,0 +1,12 @@
+﻿// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel EvaluateLocalTRS
+#pragma kernel BuildPalette
+
+struct TRS
+{
+    float3 pos;
+    float dummy1;
+    float4 rot;
+    float3 scl;
+    float dummy2;
+};
